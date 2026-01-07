@@ -257,7 +257,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           builder: (_) => SignupScreen(
                             examData: widget.examData,
                             selectedStrengths: widget.selectedStrengths,
-                            selectedWeaknesses: widget.selectedWeaknesses, selectedSkills: [], selectedIssues: [],
+                            selectedWeaknesses: widget.selectedWeaknesses,
                           ),
                         ),
                       );

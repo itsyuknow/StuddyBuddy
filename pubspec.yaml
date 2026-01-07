@@ -1,0 +1,47 @@
+name: studdybudyy
+description: "Student matching & study companion app"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+
+  # iOS style icons
+  cupertino_icons: ^1.0.8
+
+  # Supabase (backend, auth, realtime, DB)
+  supabase_flutter: ^2.3.4
+
+  # State management (scalable & clean)
+  flutter_riverpod: ^2.5.1
+
+  # Navigation (future-proof routing)
+  go_router: ^13.2.0
+
+  # Local storage for caching user data
+  shared_preferences: ^2.2.2
+
+  # Image picker for posts
+  image_picker: ^1.0.4
+  timeago: ^3.6.1
+  intl: ^0.18.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # App assets
+  assets:
+    - assets/logo.png
+

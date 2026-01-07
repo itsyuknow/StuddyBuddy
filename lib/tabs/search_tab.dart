@@ -1,0 +1,835 @@
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../screens/match_animation_screen.dart';
+import '../services/user_session.dart';
+import '../screens/user_profile_screen.dart';
+
+class SearchTab extends StatefulWidget {
+  const SearchTab({super.key});
+
+  @override
+  State<SearchTab> createState() => _SearchTabState();
+}
+
+class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixin {
+  final _supabase = Supabase.instance.client;
+  final _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+
+  List<Map<String, dynamic>> _searchResults = [];
+  List<Map<String, dynamic>> _suggestedUsers = [];
+  bool _isSearching = false;
+  bool _isLoading = true;
+  bool _isSearchFocused = false;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSuggestedUsers();
+    _searchFocusNode.addListener(() {
+      setState(() {
+        _isSearchFocused = _searchFocusNode.hasFocus;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadSuggestedUsers() async {
+    try {
+      final currentUserId = _supabase.auth.currentUser?.id;
+
+      if (currentUserId == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Get current user's full profile
+      final currentUserData = await _supabase
+          .from('users')
+          .select('exam_id, strengths, weaknesses, skills, study_issues')
+          .eq('id', currentUserId)
+          .single();
+
+      if (currentUserData == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Get all users with same exam
+      final response = await _supabase
+          .from('users')
+          .select('id, full_name, username, bio, avatar_url, is_verified, exam_id, strengths, weaknesses, skills, study_issues')
+          .eq('exam_id', currentUserData['exam_id'])
+          .neq('id', currentUserId);
+
+      // Calculate match scores for each user
+      final List<Map<String, dynamic>> usersWithScores = [];
+
+      for (var user in response as List) {
+        final matchScore = _calculateMatchScore(
+          currentUserData,
+          user,
+        );
+
+        // Only include users with 75% or higher match
+        if (matchScore >= 75) {
+          user['match_score'] = matchScore;
+          usersWithScores.add(Map<String, dynamic>.from(user));
+        }
+      }
+
+      // Sort by match score (highest first)
+      usersWithScores.sort((a, b) =>
+          (b['match_score'] as int).compareTo(a['match_score'] as int)
+      );
+
+      print('Found ${usersWithScores.length} compatible users (75%+ match)');
+      for (var user in usersWithScores.take(5)) {
+        print('${user['full_name']}: ${user['match_score']}% match');
+      }
+
+      setState(() {
+        _suggestedUsers = usersWithScores.take(15).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading suggested users: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  int _calculateMatchScore(
+      Map<String, dynamic> currentUser,
+      Map<String, dynamic> otherUser,
+      ) {
+    int totalPoints = 0;
+    int maxPoints = 0;
+
+    // Get lists safely
+    final myStrengths = List<String>.from(currentUser['strengths'] ?? []);
+    final myWeaknesses = List<String>.from(currentUser['weaknesses'] ?? []);
+    final mySkills = List<String>.from(currentUser['skills'] ?? []);
+    final myIssues = List<String>.from(currentUser['study_issues'] ?? []);
+
+    final theirStrengths = List<String>.from(otherUser['strengths'] ?? []);
+    final theirWeaknesses = List<String>.from(otherUser['weaknesses'] ?? []);
+    final theirSkills = List<String>.from(otherUser['skills'] ?? []);
+    final theirIssues = List<String>.from(otherUser['study_issues'] ?? []);
+
+    // 1. COMPLEMENTARY STRENGTHS & WEAKNESSES (40% weight)
+    // My weaknesses match their strengths = they can help me
+    if (myWeaknesses.isNotEmpty) {
+      maxPoints += 20;
+      final helpMeCount = myWeaknesses.where(
+              (weakness) => theirStrengths.contains(weakness)
+      ).length;
+      totalPoints += ((helpMeCount / myWeaknesses.length) * 20).round();
+    }
+
+    // My strengths match their weaknesses = I can help them
+    if (theirWeaknesses.isNotEmpty) {
+      maxPoints += 20;
+      final helpThemCount = myStrengths.where(
+              (strength) => theirWeaknesses.contains(strength)
+      ).length;
+      totalPoints += ((helpThemCount / theirWeaknesses.length) * 20).round();
+    }
+
+    // 2. MATCHING SKILLS (30% weight)
+    // Similar skills = good collaboration potential
+    if (mySkills.isNotEmpty && theirSkills.isNotEmpty) {
+      maxPoints += 30;
+      final commonSkills = mySkills.where(
+              (skill) => theirSkills.contains(skill)
+      ).length;
+      final totalSkills = (mySkills.length + theirSkills.length) / 2;
+      totalPoints += ((commonSkills / totalSkills) * 30).round();
+    }
+
+    // 3. COMPLEMENTARY STUDY ISSUES (30% weight)
+    // Their strengths can help with my issues
+    if (myIssues.isNotEmpty && theirStrengths.isNotEmpty) {
+      maxPoints += 15;
+      final issuesTheyCanHelp = myIssues.where((issue) {
+        // Check if any of their strengths could help with this issue
+        return theirStrengths.any((strength) =>
+            _areRelated(issue, strength)
+        );
+      }).length;
+      totalPoints += ((issuesTheyCanHelp / myIssues.length) * 15).round();
+    }
+
+    // My strengths can help with their issues
+    if (theirIssues.isNotEmpty && myStrengths.isNotEmpty) {
+      maxPoints += 15;
+      final issuesICanHelp = theirIssues.where((issue) {
+        return myStrengths.any((strength) =>
+            _areRelated(issue, strength)
+        );
+      }).length;
+      totalPoints += ((issuesICanHelp / theirIssues.length) * 15).round();
+    }
+
+    // Calculate final percentage
+    if (maxPoints == 0) return 0;
+    return ((totalPoints / maxPoints) * 100).round();
+  }
+
+  bool _areRelated(String issue, String strength) {
+    // Check if a strength could help with an issue
+    // Example: "Time management" strength can help with "Time pressure during exam" issue
+
+    final issueLower = issue.toLowerCase();
+    final strengthLower = strength.toLowerCase();
+
+    // Direct keyword matching
+    final issueKeywords = issueLower.split(' ');
+    final strengthKeywords = strengthLower.split(' ');
+
+    for (var issueWord in issueKeywords) {
+      if (issueWord.length > 3) { // Only check meaningful words
+        for (var strengthWord in strengthKeywords) {
+          if (strengthWord.length > 3 && strengthWord.contains(issueWord)) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  Future<void> _searchUsers(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+      });
+      return;
+    }
+
+    setState(() => _isSearching = true);
+
+    try {
+      final currentUserId = _supabase.auth.currentUser?.id;
+
+      // Search in user_profiles table
+      final response = await _supabase
+          .from('user_profiles')
+          .select('id, full_name, username, bio, avatar_url, is_verified')
+          .neq('id', currentUserId!)
+          .or('full_name.ilike.%$query%,username.ilike.%$query%')
+          .limit(30);
+
+      print('Search results: ${response.length}');
+
+      setState(() {
+        _searchResults = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (e) {
+      print('Error searching users: $e');
+    } finally {
+      setState(() => _isSearching = false);
+    }
+  }
+
+  void _navigateToProfile(String userId, {Map<String, dynamic>? userData}) async {
+    // Show match animation if match score is 85% or higher
+    if (userData != null && userData['match_score'] != null && userData['match_score'] >= 85) {
+      // Get current user data
+      final currentUserId = _supabase.auth.currentUser?.id;
+      if (currentUserId != null) {
+        try {
+          final currentUserData = await _supabase
+              .from('users')
+              .select('id, full_name, avatar_url')
+              .eq('id', currentUserId)
+              .single();
+
+          if (!mounted) return;
+
+          // Show match animation
+          await Navigator.push(
+            context,
+            PageRouteBuilder(
+              opaque: false,
+              pageBuilder: (context, animation, secondaryAnimation) => FadeTransition(
+                opacity: animation,
+                child: MatchAnimationScreen(
+                  currentUser: currentUserData,
+                  matchedUser: userData,
+                  matchPercentage: userData['match_score'],
+                ),
+              ),
+              transitionDuration: const Duration(milliseconds: 300),
+            ),
+          );
+        } catch (e) {
+          print('Error loading current user data: $e');
+        }
+      }
+    }
+
+    // Navigate to profile
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UserProfileScreen(userId: userId),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAFAFA),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildSearchHeader(),
+            Expanded(
+              child: _searchController.text.isEmpty
+                  ? _buildSuggestedSection()
+                  : _buildSearchResults(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Search',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFEFEF),
+              borderRadius: BorderRadius.circular(12),
+              border: _isSearchFocused
+                  ? Border.all(color: Colors.black, width: 1.5)
+                  : null,
+            ),
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              onChanged: _searchUsers,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Search',
+                hintStyle: TextStyle(
+                  color: Colors.grey.shade500,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: Colors.grey.shade600,
+                  size: 22,
+                ),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? GestureDetector(
+                  onTap: () {
+                    _searchController.clear();
+                    setState(() {
+                      _searchResults = [];
+                    });
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade400,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                isDense: true,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSuggestedSection() {
+    if (_isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [Colors.blue.shade400, Colors.purple.shade400],
+                ),
+              ),
+              child: const CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Finding connections...',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadSuggestedUsers,
+      color: Colors.black,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_suggestedUsers.isEmpty)
+              SizedBox(
+                height: MediaQuery.of(context).size.height - 200,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.people_outline,
+                          size: 48,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'No suggestions yet',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Follow people to get recommendations',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Row(
+                  children: [
+                    Text(
+                      'Suggested for you',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _suggestedUsers.length,
+                itemBuilder: (context, index) {
+                  final user = _suggestedUsers[index];
+                  return _buildUserTile(user, showFollowButton: true);
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    if (_isSearching) {
+      return Center(
+        child: Container(
+          width: 50,
+          height: 50,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade400, Colors.purple.shade400],
+            ),
+          ),
+          child: const CircularProgressIndicator(
+            color: Colors.white,
+            strokeWidth: 3,
+          ),
+        ),
+      );
+    }
+
+    if (_searchResults.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.search_off,
+                size: 48,
+                color: Colors.grey.shade400,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'No results found',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Try searching for something else',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 8),
+      itemCount: _searchResults.length,
+      itemBuilder: (context, index) {
+        final user = _searchResults[index];
+        return _buildUserTile(user, showFollowButton: false);
+      },
+    );
+  }
+
+  Widget _buildUserTile(Map<String, dynamic> user, {required bool showFollowButton}) {
+    final fullName = user['full_name'] ?? 'User';
+    final username = user['username'];
+    final bio = user['bio'];
+    final avatarUrl = user['avatar_url'];
+    final isVerified = user['is_verified'] == true;
+    final matchScore = user['match_score'] as int?;
+
+    return InkWell(
+      onTap: () => _navigateToProfile(user['id'], userData: user),
+      child: Container(
+        color: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            // Avatar with Instagram-style gradient border
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: [
+                    Colors.purple.shade400,
+                    Colors.pink.shade400,
+                    Colors.orange.shade400,
+                  ],
+                ),
+              ),
+              padding: const EdgeInsets.all(2),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                padding: const EdgeInsets.all(2),
+                child: _buildAvatar(avatarUrl, fullName, 56),
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // User info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          username ?? fullName,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isVerified) ...[
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.verified,
+                          color: Color(0xFF0095F6),
+                          size: 14,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    fullName,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (matchScore != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: matchScore >= 90
+                                  ? [const Color(0xFF10B981), const Color(0xFF059669)]
+                                  : matchScore >= 80
+                                  ? [const Color(0xFF0EA5E9), const Color(0xFF0284C7)]
+                                  : [const Color(0xFFF59E0B), const Color(0xFFEF4444)],
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.stars_rounded,
+                                size: 12,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$matchScore% Match',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else if (bio != null && bio.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      bio,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // Action button
+            if (showFollowButton)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0095F6),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Follow',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: Colors.black54,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(String? avatarUrl, String userName, double size) {
+    print('Building avatar - URL: $avatarUrl, Name: $userName');
+
+    if (avatarUrl != null && avatarUrl.isNotEmpty && avatarUrl != 'null') {
+      return ClipOval(
+        child: Image.network(
+          avatarUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              width: size,
+              height: size,
+              color: Colors.grey.shade200,
+              child: Center(
+                child: SizedBox(
+                  width: size * 0.3,
+                  height: size * 0.3,
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                        : null,
+                    strokeWidth: 2,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            print('Error loading avatar: $error');
+            return _buildAvatarFallback(userName, size);
+          },
+        ),
+      );
+    }
+    return _buildAvatarFallback(userName, size);
+  }
+
+  Widget _buildAvatarFallback(String userName, double size) {
+    // Generate consistent colors based on first letter
+    final letter = userName.isNotEmpty ? userName[0].toUpperCase() : '?';
+    final colors = [
+      [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
+      [const Color(0xFFEC4899), const Color(0xFFF97316)],
+      [const Color(0xFF10B981), const Color(0xFF06B6D4)],
+      [const Color(0xFFF59E0B), const Color(0xFFEF4444)],
+      [const Color(0xFF3B82F6), const Color(0xFF8B5CF6)],
+    ];
+    final colorPair = colors[letter.hashCode % colors.length];
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colorPair,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          letter,
+          style: TextStyle(
+            fontSize: size * 0.4,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+}

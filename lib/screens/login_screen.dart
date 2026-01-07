@@ -8,16 +8,12 @@ class LoginScreen extends StatefulWidget {
   final Map<String, dynamic> examData;
   final List<String> selectedStrengths;
   final List<String> selectedWeaknesses;
-  final List<String> selectedSkills;
-  final List<String> selectedIssues;
 
   const LoginScreen({
     super.key,
     required this.examData,
     required this.selectedStrengths,
     required this.selectedWeaknesses,
-    required this.selectedSkills,
-    required this.selectedIssues,
   });
 
   @override
@@ -261,9 +257,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           builder: (_) => SignupScreen(
                             examData: widget.examData,
                             selectedStrengths: widget.selectedStrengths,
-                            selectedWeaknesses: widget.selectedWeaknesses,
-                            selectedSkills: widget.selectedSkills,
-                            selectedIssues: widget.selectedIssues,
+                            selectedWeaknesses: widget.selectedWeaknesses, selectedSkills: [], selectedIssues: [],
                           ),
                         ),
                       );

@@ -21,9 +21,11 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
   final _supabase = Supabase.instance.client;
   Map<String, dynamic>? _userData;
   List<Map<String, dynamic>> _userPosts = [];
+  List<Map<String, dynamic>> _userChallenges = [];
   bool _isLoading = true;
   bool _isLoadingPosts = true;
   bool _isStudyProfileExpanded = false;
+  bool _showingPosts = true; // true = posts, false = challenges
   int _followersCount = 0;
   int _followingCount = 0;
 
@@ -96,8 +98,13 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
       final allPosts = await PostService.getPosts();
       final userPosts = allPosts.where((post) => post['user_id'] == userId).toList();
 
+      // Separate normal posts and challenges
+      final normalPosts = userPosts.where((post) => post['challenge_type'] == null).toList();
+      final challenges = userPosts.where((post) => post['challenge_type'] != null).toList();
+
       setState(() {
-        _userPosts = userPosts;
+        _userPosts = normalPosts;
+        _userChallenges = challenges;
         _isLoadingPosts = false;
       });
     } catch (e) {
@@ -454,18 +461,6 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
               ),
             ),
           ),
-          const SizedBox(width: 6),
-          Container(
-            height: 32,
-            width: 32,
-            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
-            child: IconButton(
-              padding: EdgeInsets.zero,
-              onPressed: () {},
-              icon: const Icon(Icons.person_add_outlined, size: 18),
-              color: Colors.black,
-            ),
-          ),
         ],
       ),
     );
@@ -658,6 +653,8 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildPostsSection() {
+    final currentList = _showingPosts ? _userPosts : _userChallenges;
+
     return Container(
       color: Colors.white,
       child: Column(
@@ -673,16 +670,39 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
             child: Row(
               children: [
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black, width: 1))),
-                    child: const Icon(Icons.grid_on, size: 24, color: Colors.black),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _showingPosts = true),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        border: _showingPosts
+                            ? Border(bottom: BorderSide(color: Colors.black, width: 1))
+                            : null,
+                      ),
+                      child: Icon(
+                        Icons.grid_on,
+                        size: 24,
+                        color: _showingPosts ? Colors.black : Colors.grey.shade400,
+                      ),
+                    ),
                   ),
                 ),
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Icon(Icons.person_pin_outlined, size: 24, color: Colors.grey.shade400),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _showingPosts = false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        border: !_showingPosts
+                            ? Border(bottom: BorderSide(color: Colors.black, width: 1))
+                            : null,
+                      ),
+                      child: Icon(
+                        Icons.emoji_events,
+                        size: 24,
+                        color: !_showingPosts ? Colors.black : Colors.grey.shade400,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -690,7 +710,7 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
           ),
           _isLoadingPosts
               ? Container(height: 200, alignment: Alignment.center, child: const CircularProgressIndicator(color: Colors.black))
-              : _userPosts.isEmpty
+              : currentList.isEmpty
               ? Container(
             height: 300,
             alignment: Alignment.center,
@@ -700,13 +720,28 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
                 Container(
                   width: 80,
                   height: 80,
-                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.black, width: 2)),
-                  child: const Icon(Icons.camera_alt_outlined, size: 40),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black, width: 2),
+                  ),
+                  child: Icon(
+                    _showingPosts ? Icons.camera_alt_outlined : Icons.emoji_events_outlined,
+                    size: 40,
+                  ),
                 ),
                 const SizedBox(height: 16),
-                const Text('Share Photos', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w300, color: Colors.black)),
+                Text(
+                  _showingPosts ? 'Share Photos' : 'No Challenges Yet',
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w300, color: Colors.black),
+                ),
                 const SizedBox(height: 8),
-                const Text('When you share photos, they will appear on your profile.', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Colors.black54)),
+                Text(
+                  _showingPosts
+                      ? 'When you share photos, they will appear on your profile.'
+                      : 'When you create challenges, they will appear here.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14, color: Colors.black54),
+                ),
               ],
             ),
           )
@@ -714,9 +749,13 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 2, mainAxisSpacing: 2),
-            itemCount: _userPosts.length,
-            itemBuilder: (context, index) => _buildPostGridItem(_userPosts[index]),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 2,
+              mainAxisSpacing: 2,
+            ),
+            itemCount: currentList.length,
+            itemBuilder: (context, index) => _buildPostGridItem(currentList[index]),
           ),
         ],
       ),
@@ -724,38 +763,70 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildPostGridItem(Map<String, dynamic> post) {
+    final isChallenge = post['challenge_type'] != null;
+
     return GestureDetector(
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => PostDetailsScreen(postId: post['id']))).then((_) => _loadUserPosts());
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => PostDetailsScreen(postId: post['id'])),
+        ).then((_) => _loadUserPosts());
       },
       child: Container(
         color: Colors.grey.shade200,
-        child: post['image_url'] != null
-            ? Image.network(
-          post['image_url'],
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
-            color: Colors.grey.shade300,
-            child: const Icon(Icons.broken_image, size: 40, color: Colors.white),
-          ),
-        )
-            : Container(
-          color: Colors.grey.shade300,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.article_outlined, size: 32, color: Colors.white),
-              const SizedBox(height: 8),
-              Text(
-                post['title'] ?? '',
-                style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w500),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (post['image_url'] != null)
+              Image.network(
+                post['image_url'],
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: Colors.grey.shade300,
+                  child: const Icon(Icons.broken_image, size: 40, color: Colors.white),
+                ),
+              )
+            else
+              Container(
+                color: Colors.grey.shade300,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isChallenge ? Icons.emoji_events : Icons.article_outlined,
+                      size: 32,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      post['title'] ?? '',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
+            if (isChallenge)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFBBF24),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(Icons.emoji_events, size: 16, color: Colors.white),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -814,18 +885,13 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
                 onTap: () => Navigator.pop(context),
               ),
               const Divider(height: 1),
-              // Replace the logout ListTile in _showOptionsMenu() with this:
-
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.red),
                 title: const Text('Log out', style: TextStyle(color: Colors.red)),
                 onTap: () async {
-                  // Get the root navigator context before closing anything
                   final navigatorContext = Navigator.of(context, rootNavigator: true).context;
+                  Navigator.pop(context);
 
-                  Navigator.pop(context); // Close the bottom sheet first
-
-                  // Show confirmation dialog
                   final confirm = await showDialog<bool>(
                     context: navigatorContext,
                     builder: (dialogContext) => AlertDialog(
@@ -847,7 +913,6 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
 
                   if (confirm != true) return;
 
-                  // Show loading
                   showDialog(
                     context: navigatorContext,
                     barrierDismissible: false,
@@ -860,13 +925,9 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
                   );
 
                   try {
-                    // Clear user session (this calls signOut internally)
                     await UserSession.clearUser();
-
-                    // Small delay to ensure cleanup
                     await Future.delayed(const Duration(milliseconds: 200));
 
-                    // Close loading dialog and navigate in one go
                     Navigator.of(navigatorContext).pushAndRemoveUntil(
                       MaterialPageRoute(
                         builder: (_) => const ExamSelectionScreen(),
@@ -874,10 +935,7 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
                           (route) => false,
                     );
                   } catch (e) {
-                    // Close loading dialog
                     Navigator.of(navigatorContext).pop();
-
-                    // Show error
                     ScaffoldMessenger.of(navigatorContext).showSnackBar(
                       SnackBar(
                         content: Text('Error logging out: $e'),

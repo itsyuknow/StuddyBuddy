@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'skills_selection_screen.dart';
+import '../services/user_session.dart';
+import 'login_screen.dart';
+import 'main_app_screen.dart';
 
 class WeaknessSelectionScreen extends StatefulWidget {
   final Map<String, dynamic> examData;
@@ -59,9 +61,7 @@ class _WeaknessSelectionScreenState extends State<WeaknessSelectionScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+                Column(
                   children: weaknesses.map<Widget>((weakness) {
                     bool isSelected = selectedWeaknesses.contains(weakness);
                     return GestureDetector(
@@ -75,10 +75,8 @@ class _WeaknessSelectionScreenState extends State<WeaknessSelectionScreen> {
                         });
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: isSelected ? Colors.black : Colors.white,
                           border: Border.all(
@@ -88,7 +86,6 @@ class _WeaknessSelectionScreenState extends State<WeaknessSelectionScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               isSelected
@@ -97,13 +94,15 @@ class _WeaknessSelectionScreenState extends State<WeaknessSelectionScreen> {
                               color: isSelected ? Colors.white : Colors.black,
                               size: 20,
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              weakness,
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: isSelected ? Colors.white : Colors.black,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                weakness,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected ? Colors.white : Colors.black,
+                                ),
                               ),
                             ),
                           ],
@@ -118,17 +117,8 @@ class _WeaknessSelectionScreenState extends State<WeaknessSelectionScreen> {
                   child: ElevatedButton(
                     onPressed: selectedWeaknesses.isEmpty
                         ? null
-                        : () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SkillsSelectionScreen(
-                            examData: widget.examData,
-                            selectedStrengths: widget.selectedStrengths,
-                            selectedWeaknesses: selectedWeaknesses,
-                          ),
-                        ),
-                      );
+                        : () async {
+                      await _handleSearchBuddy(context);
                     },
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 18),
@@ -142,7 +132,7 @@ class _WeaknessSelectionScreenState extends State<WeaknessSelectionScreen> {
                       elevation: 0,
                     ),
                     child: const Text(
-                      'Continue',
+                      'Search My Buddy',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -155,13 +145,13 @@ class _WeaknessSelectionScreenState extends State<WeaknessSelectionScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(
-                    4,
+                    2,
                         (index) => Container(
                       margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: index == 2 ? 32 : 8,
+                      width: 32,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: index <= 2 ? Colors.black : Colors.grey.shade300,
+                        color: Colors.black,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -174,5 +164,31 @@ class _WeaknessSelectionScreenState extends State<WeaknessSelectionScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _handleSearchBuddy(BuildContext context) async {
+    bool isLoggedIn = await UserSession.checkLogin();
+
+    if (!isLoggedIn) {
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LoginScreen(
+            examData: widget.examData,
+            selectedStrengths: widget.selectedStrengths,
+            selectedWeaknesses: selectedWeaknesses,
+          ),
+        ),
+      );
+    } else {
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+            builder: (_) => const MainAppScreen(initialTabIndex: 1)),
+            (route) => false,
+      );
+    }
   }
 }

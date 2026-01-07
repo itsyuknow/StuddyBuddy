@@ -22,8 +22,6 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
   Map<String, dynamic>? _selectedExam;
   List<String> _selectedStrengths = [];
   List<String> _selectedWeaknesses = [];
-  List<String> _selectedSkills = [];
-  List<String> _selectedIssues = [];
 
   @override
   void initState() {
@@ -42,8 +40,6 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
     // Initialize with current user data
     _selectedStrengths = List<String>.from(widget.userData['strengths'] ?? []);
     _selectedWeaknesses = List<String>.from(widget.userData['weaknesses'] ?? []);
-    _selectedSkills = List<String>.from(widget.userData['skills'] ?? []);
-    _selectedIssues = List<String>.from(widget.userData['study_issues'] ?? []);
   }
 
   Future<void> _loadExams() async {
@@ -79,7 +75,7 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
   }
 
   void _nextStep() {
-    if (_currentStep < 4) {
+    if (_currentStep < 2) {
       setState(() => _currentStep++);
       _pageController.animateToPage(
         _currentStep,
@@ -107,13 +103,11 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-      // Update the users table (not user_profiles which is a view)
+      // Update the users table
       await _supabase.from('users').update({
         'exam_id': _selectedExam?['id'],
         'strengths': _selectedStrengths,
         'weaknesses': _selectedWeaknesses,
-        'skills': _selectedSkills,
-        'study_issues': _selectedIssues,
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', userId);
 
@@ -196,8 +190,6 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
                   _buildExamSelection(),
                   _buildStrengthSelection(),
                   _buildWeaknessSelection(),
-                  _buildSkillsSelection(),
-                  _buildIssuesSelection(),
                 ],
               ),
             ),
@@ -225,7 +217,7 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Step ${_currentStep + 1} of 5',
+                'Step ${_currentStep + 1} of 3',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -234,7 +226,7 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
                 ),
               ),
               Text(
-                '${(((_currentStep + 1) / 5) * 100).toInt()}%',
+                '${(((_currentStep + 1) / 3) * 100).toInt()}%',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -247,7 +239,7 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: (_currentStep + 1) / 5,
+              value: (_currentStep + 1) / 3,
               backgroundColor: Colors.grey.shade200,
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.black),
               minHeight: 6,
@@ -451,133 +443,6 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
     );
   }
 
-  Widget _buildSkillsSelection() {
-    final skills = _selectedExam?['skills'] as List<dynamic>? ?? [];
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Your Key Skills',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'What skills do you excel at?',
-            style: TextStyle(
-              fontSize: 15,
-              color: Colors.grey.shade600,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 32),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: skills.map<Widget>((skill) {
-              final isSelected = _selectedSkills.contains(skill);
-              return _buildSelectionChip(
-                skill,
-                isSelected,
-                    () {
-                  setState(() {
-                    if (isSelected) {
-                      _selectedSkills.remove(skill);
-                    } else {
-                      _selectedSkills.add(skill);
-                    }
-                  });
-                },
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIssuesSelection() {
-    final issues = _selectedExam?['study_issues'] as List<dynamic>? ?? [];
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Study Challenges',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'What challenges do you face?',
-            style: TextStyle(
-              fontSize: 15,
-              color: Colors.grey.shade600,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 32),
-          Column(
-            children: issues.map<Widget>((issue) {
-              final isSelected = _selectedIssues.contains(issue);
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    if (isSelected) {
-                      _selectedIssues.remove(issue);
-                    } else {
-                      _selectedIssues.add(issue);
-                    }
-                  });
-                },
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.black : Colors.white,
-                    border: Border.all(color: Colors.black, width: 2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isSelected ? Icons.check_circle : Icons.circle_outlined,
-                        color: isSelected ? Colors.white : Colors.black,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          issue,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected ? Colors.white : Colors.black,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSelectionChip(String label, bool isSelected, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -597,12 +462,16 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
               size: 20,
             ),
             const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : Colors.black,
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? Colors.white : Colors.black,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
               ),
             ),
           ],
@@ -616,11 +485,7 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
         ? _selectedExam != null
         : _currentStep == 1
         ? _selectedStrengths.isNotEmpty
-        : _currentStep == 2
-        ? _selectedWeaknesses.isNotEmpty
-        : _currentStep == 3
-        ? _selectedSkills.isNotEmpty
-        : _selectedIssues.isNotEmpty;
+        : _selectedWeaknesses.isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -664,7 +529,7 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
               child: ElevatedButton(
                 onPressed: !canProceed
                     ? null
-                    : _currentStep == 4
+                    : _currentStep == 2
                     ? _saveProfile
                     : _nextStep,
                 style: ElevatedButton.styleFrom(
@@ -686,7 +551,7 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
                   ),
                 )
                     : Text(
-                  _currentStep == 4 ? 'Update Profile' : 'Continue',
+                  _currentStep == 2 ? 'Update Profile' : 'Continue',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

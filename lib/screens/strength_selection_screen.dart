@@ -54,9 +54,7 @@ class _StrengthSelectionScreenState extends State<StrengthSelectionScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+                Column(
                   children: strengths.map<Widget>((strength) {
                     bool isSelected = selectedStrengths.contains(strength);
                     return GestureDetector(
@@ -70,10 +68,8 @@ class _StrengthSelectionScreenState extends State<StrengthSelectionScreen> {
                         });
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: isSelected ? Colors.black : Colors.white,
                           border: Border.all(
@@ -83,7 +79,6 @@ class _StrengthSelectionScreenState extends State<StrengthSelectionScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               isSelected
@@ -92,13 +87,15 @@ class _StrengthSelectionScreenState extends State<StrengthSelectionScreen> {
                               color: isSelected ? Colors.white : Colors.black,
                               size: 20,
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              strength,
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: isSelected ? Colors.white : Colors.black,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                strength,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected ? Colors.white : Colors.black,
+                                ),
                               ),
                             ),
                           ],
@@ -149,13 +146,13 @@ class _StrengthSelectionScreenState extends State<StrengthSelectionScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(
-                    4,
+                    2,
                         (index) => Container(
                       margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: index == 1 ? 32 : 8,
+                      width: index == 0 ? 32 : 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: index <= 1 ? Colors.black : Colors.grey.shade300,
+                        color: Colors.black,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),

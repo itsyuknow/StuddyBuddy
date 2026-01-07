@@ -30,11 +30,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
 
-  // Study profile data
+  // Study profile data - only strengths and weaknesses
   List<String> _strengths = [];
   List<String> _weaknesses = [];
-  List<String> _skills = [];
-  List<String> _studyIssues = [];
   List<String> _interests = [];
 
   @override
@@ -88,8 +86,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
         _strengths = List<String>.from(response['strengths'] ?? []);
         _weaknesses = List<String>.from(response['weaknesses'] ?? []);
-        _skills = List<String>.from(response['skills'] ?? []);
-        _studyIssues = List<String>.from(response['study_issues'] ?? []);
         _interests = List<String>.from(response['interests'] ?? []);
 
         _isLoading = false;
@@ -126,8 +122,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'date_of_birth': _selectedDate?.toIso8601String(),
         'strengths': _strengths,
         'weaknesses': _weaknesses,
-        'skills': _skills,
-        'study_issues': _studyIssues,
         'interests': _interests,
       }).eq('id', userId!);
 
@@ -370,26 +364,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 Colors.red,
                     () => _showTagEditor('Weaknesses', _weaknesses, (tags) {
                   setState(() => _weaknesses = tags);
-                }),
-              ),
-              const SizedBox(height: 12),
-              _buildTagButton(
-                'Skills',
-                _skills,
-                Icons.star,
-                Colors.blue,
-                    () => _showTagEditor('Skills', _skills, (tags) {
-                  setState(() => _skills = tags);
-                }),
-              ),
-              const SizedBox(height: 12),
-              _buildTagButton(
-                'Study Issues',
-                _studyIssues,
-                Icons.warning,
-                Colors.orange,
-                    () => _showTagEditor('Study Issues', _studyIssues, (tags) {
-                  setState(() => _studyIssues = tags);
                 }),
               ),
               const SizedBox(height: 12),

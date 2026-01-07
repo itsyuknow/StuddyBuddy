@@ -17,10 +17,12 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
   final FocusNode _searchFocusNode = FocusNode();
 
   List<Map<String, dynamic>> _searchResults = [];
-  List<Map<String, dynamic>> _suggestedUsers = [];
+  List<Map<String, dynamic>> _buddyUsers = [];
+  List<Map<String, dynamic>> _otherUsers = [];
   bool _isSearching = false;
   bool _isLoading = true;
   bool _isSearchFocused = false;
+  String _selectedTab = 'buddy'; // 'buddy' or 'others'
 
   @override
   bool get wantKeepAlive => true;
@@ -55,7 +57,7 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
       // Get current user's full profile
       final currentUserData = await _supabase
           .from('users')
-          .select('exam_id, strengths, weaknesses, skills, study_issues')
+          .select('exam_id, strengths, weaknesses')
           .eq('id', currentUserId)
           .single();
 
@@ -67,7 +69,7 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
       // Get all users with same exam
       final response = await _supabase
           .from('users')
-          .select('id, full_name, username, bio, avatar_url, is_verified, exam_id, strengths, weaknesses, skills, study_issues')
+          .select('id, full_name, username, bio, avatar_url, is_verified, exam_id, strengths, weaknesses')
           .eq('exam_id', currentUserData['exam_id'])
           .neq('id', currentUserId);
 
@@ -80,11 +82,8 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
           user,
         );
 
-        // Only include users with 75% or higher match
-        if (matchScore >= 75) {
-          user['match_score'] = matchScore;
-          usersWithScores.add(Map<String, dynamic>.from(user));
-        }
+        user['match_score'] = matchScore;
+        usersWithScores.add(Map<String, dynamic>.from(user));
       }
 
       // Sort by match score (highest first)
@@ -92,13 +91,16 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
           (b['match_score'] as int).compareTo(a['match_score'] as int)
       );
 
-      print('Found ${usersWithScores.length} compatible users (75%+ match)');
-      for (var user in usersWithScores.take(5)) {
-        print('${user['full_name']}: ${user['match_score']}% match');
-      }
+      // Separate buddy users (50%+) and others
+      final buddyList = usersWithScores.where((user) => user['match_score'] >= 50).toList();
+      final othersList = usersWithScores.where((user) => user['match_score'] < 50).toList();
+
+      print('Found ${buddyList.length} buddy users (50%+ match)');
+      print('Found ${othersList.length} other users');
 
       setState(() {
-        _suggestedUsers = usersWithScores.take(15).toList();
+        _buddyUsers = buddyList;
+        _otherUsers = othersList;
         _isLoading = false;
       });
     } catch (e) {
@@ -117,95 +119,31 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
     // Get lists safely
     final myStrengths = List<String>.from(currentUser['strengths'] ?? []);
     final myWeaknesses = List<String>.from(currentUser['weaknesses'] ?? []);
-    final mySkills = List<String>.from(currentUser['skills'] ?? []);
-    final myIssues = List<String>.from(currentUser['study_issues'] ?? []);
 
     final theirStrengths = List<String>.from(otherUser['strengths'] ?? []);
     final theirWeaknesses = List<String>.from(otherUser['weaknesses'] ?? []);
-    final theirSkills = List<String>.from(otherUser['skills'] ?? []);
-    final theirIssues = List<String>.from(otherUser['study_issues'] ?? []);
 
-    // 1. COMPLEMENTARY STRENGTHS & WEAKNESSES (40% weight)
-    // My weaknesses match their strengths = they can help me
-    if (myWeaknesses.isNotEmpty) {
-      maxPoints += 20;
+    // My weaknesses match their strengths = they can help me (50% weight)
+    if (myWeaknesses.isNotEmpty && theirStrengths.isNotEmpty) {
+      maxPoints += 50;
       final helpMeCount = myWeaknesses.where(
               (weakness) => theirStrengths.contains(weakness)
       ).length;
-      totalPoints += ((helpMeCount / myWeaknesses.length) * 20).round();
+      totalPoints += ((helpMeCount / myWeaknesses.length) * 50).round();
     }
 
-    // My strengths match their weaknesses = I can help them
-    if (theirWeaknesses.isNotEmpty) {
-      maxPoints += 20;
+    // My strengths match their weaknesses = I can help them (50% weight)
+    if (myStrengths.isNotEmpty && theirWeaknesses.isNotEmpty) {
+      maxPoints += 50;
       final helpThemCount = myStrengths.where(
               (strength) => theirWeaknesses.contains(strength)
       ).length;
-      totalPoints += ((helpThemCount / theirWeaknesses.length) * 20).round();
-    }
-
-    // 2. MATCHING SKILLS (30% weight)
-    // Similar skills = good collaboration potential
-    if (mySkills.isNotEmpty && theirSkills.isNotEmpty) {
-      maxPoints += 30;
-      final commonSkills = mySkills.where(
-              (skill) => theirSkills.contains(skill)
-      ).length;
-      final totalSkills = (mySkills.length + theirSkills.length) / 2;
-      totalPoints += ((commonSkills / totalSkills) * 30).round();
-    }
-
-    // 3. COMPLEMENTARY STUDY ISSUES (30% weight)
-    // Their strengths can help with my issues
-    if (myIssues.isNotEmpty && theirStrengths.isNotEmpty) {
-      maxPoints += 15;
-      final issuesTheyCanHelp = myIssues.where((issue) {
-        // Check if any of their strengths could help with this issue
-        return theirStrengths.any((strength) =>
-            _areRelated(issue, strength)
-        );
-      }).length;
-      totalPoints += ((issuesTheyCanHelp / myIssues.length) * 15).round();
-    }
-
-    // My strengths can help with their issues
-    if (theirIssues.isNotEmpty && myStrengths.isNotEmpty) {
-      maxPoints += 15;
-      final issuesICanHelp = theirIssues.where((issue) {
-        return myStrengths.any((strength) =>
-            _areRelated(issue, strength)
-        );
-      }).length;
-      totalPoints += ((issuesICanHelp / theirIssues.length) * 15).round();
+      totalPoints += ((helpThemCount / myStrengths.length) * 50).round();
     }
 
     // Calculate final percentage
     if (maxPoints == 0) return 0;
     return ((totalPoints / maxPoints) * 100).round();
-  }
-
-  bool _areRelated(String issue, String strength) {
-    // Check if a strength could help with an issue
-    // Example: "Time management" strength can help with "Time pressure during exam" issue
-
-    final issueLower = issue.toLowerCase();
-    final strengthLower = strength.toLowerCase();
-
-    // Direct keyword matching
-    final issueKeywords = issueLower.split(' ');
-    final strengthKeywords = strengthLower.split(' ');
-
-    for (var issueWord in issueKeywords) {
-      if (issueWord.length > 3) { // Only check meaningful words
-        for (var strengthWord in strengthKeywords) {
-          if (strengthWord.length > 3 && strengthWord.contains(issueWord)) {
-            return true;
-          }
-        }
-      }
-    }
-
-    return false;
   }
 
   Future<void> _searchUsers(String query) async {
@@ -299,6 +237,7 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
         child: Column(
           children: [
             _buildSearchHeader(),
+            if (_searchController.text.isEmpty) _buildTabButtons(),
             Expanded(
               child: _searchController.text.isEmpty
                   ? _buildSuggestedSection()
@@ -395,6 +334,62 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
     );
   }
 
+  Widget _buildTabButtons() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedTab = 'buddy'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _selectedTab == 'buddy' ? Colors.black : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    'Find My Buddy',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _selectedTab == 'buddy' ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedTab = 'others'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _selectedTab == 'others' ? Colors.black : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    'Others',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _selectedTab == 'others' ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSuggestedSection() {
     if (_isLoading) {
       return Center(
@@ -429,82 +424,230 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
       );
     }
 
+    if (_selectedTab == 'buddy') {
+      return _buildBuddyList();
+    } else {
+      return _buildOthersList();
+    }
+  }
+
+  Widget _buildBuddyList() {
+    if (_buddyUsers.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.people_outline,
+                size: 48,
+                color: Colors.grey.shade400,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'No buddy matches found',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Complete your profile to find matches',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return RefreshIndicator(
       onRefresh: _loadSuggestedUsers,
       color: Colors.black,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
+      child: ListView.builder(
+        padding: const EdgeInsets.only(top: 8),
+        itemCount: _buddyUsers.length,
+        itemBuilder: (context, index) {
+          final user = _buddyUsers[index];
+          return _buildUserTile(user, showFollowButton: true);
+        },
+      ),
+    );
+  }
+
+  Widget _buildOthersList() {
+    if (_otherUsers.isEmpty) {
+      return Center(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (_suggestedUsers.isEmpty)
-              SizedBox(
-                height: MediaQuery.of(context).size.height - 200,
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.people_outline,
-                          size: 48,
-                          color: Colors.grey.shade400,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'No suggestions yet',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade800,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Follow people to get recommendations',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Row(
-                  children: [
-                    Text(
-                      'Suggested for you',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade800,
-                      ),
-                    ),
-                  ],
-                ),
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
               ),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _suggestedUsers.length,
-                itemBuilder: (context, index) {
-                  final user = _suggestedUsers[index];
-                  return _buildUserTile(user, showFollowButton: true);
-                },
+              child: Icon(
+                Icons.people_outline,
+                size: 48,
+                color: Colors.grey.shade400,
               ),
-            ],
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'No suggestions yet',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade800,
+              ),
+            ),
           ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadSuggestedUsers,
+      color: Colors.black,
+      child: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.75,
+        ),
+        itemCount: _otherUsers.length,
+        itemBuilder: (context, index) {
+          final user = _otherUsers[index];
+          return _buildSquareProfileCard(user);
+        },
+      ),
+    );
+  }
+
+  Widget _buildSquareProfileCard(Map<String, dynamic> user) {
+    final fullName = user['full_name'] ?? 'User';
+    final username = user['username'];
+    final avatarUrl = user['avatar_url'];
+    final isVerified = user['is_verified'] == true;
+
+    return GestureDetector(
+      onTap: () => _navigateToProfile(user['id'], userData: user),
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            height: 110,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              gradient: LinearGradient(
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [
+                  Colors.purple.shade400,
+                  Colors.pink.shade400,
+                  Colors.orange.shade400,
+                ],
+              ),
+            ),
+            padding: const EdgeInsets.all(2),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(7),
+              ),
+              padding: const EdgeInsets.all(2),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: _buildSquareAvatar(avatarUrl, fullName),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  username ?? fullName,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              if (isVerified) ...[
+                const SizedBox(width: 2),
+                const Icon(
+                  Icons.verified,
+                  color: Color(0xFF0095F6),
+                  size: 12,
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSquareAvatar(String? avatarUrl, String userName) {
+    if (avatarUrl != null && avatarUrl.isNotEmpty && avatarUrl != 'null') {
+      return Image.network(
+        avatarUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildSquareAvatarFallback(userName);
+        },
+      );
+    }
+    return _buildSquareAvatarFallback(userName);
+  }
+
+  Widget _buildSquareAvatarFallback(String userName) {
+    final letter = userName.isNotEmpty ? userName[0].toUpperCase() : '?';
+    final colors = [
+      [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
+      [const Color(0xFFEC4899), const Color(0xFFF97316)],
+      [const Color(0xFF10B981), const Color(0xFF06B6D4)],
+      [const Color(0xFFF59E0B), const Color(0xFFEF4444)],
+      [const Color(0xFF3B82F6), const Color(0xFF8B5CF6)],
+    ];
+    final colorPair = colors[letter.hashCode % colors.length];
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colorPair,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          letter,
+          style: const TextStyle(
+            fontSize: 40,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -596,7 +739,7 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            // Avatar with Instagram-style gradient border
+            // Avatar with gradient border
             Container(
               width: 60,
               height: 60,
@@ -675,9 +818,11 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
                             gradient: LinearGradient(
                               colors: matchScore >= 90
                                   ? [const Color(0xFF10B981), const Color(0xFF059669)]
-                                  : matchScore >= 80
+                                  : matchScore >= 75
                                   ? [const Color(0xFF0EA5E9), const Color(0xFF0284C7)]
-                                  : [const Color(0xFFF59E0B), const Color(0xFFEF4444)],
+                                  : matchScore >= 50
+                                  ? [const Color(0xFFF59E0B), const Color(0xFFD97706)]
+                                  : [const Color(0xFFEF4444), const Color(0xFFDC2626)],
                             ),
                             borderRadius: BorderRadius.circular(4),
                           ),
@@ -756,8 +901,6 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
   }
 
   Widget _buildAvatar(String? avatarUrl, String userName, double size) {
-    print('Building avatar - URL: $avatarUrl, Name: $userName');
-
     if (avatarUrl != null && avatarUrl.isNotEmpty && avatarUrl != 'null') {
       return ClipOval(
         child: Image.network(
@@ -788,7 +931,6 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
             );
           },
           errorBuilder: (context, error, stackTrace) {
-            print('Error loading avatar: $error');
             return _buildAvatarFallback(userName, size);
           },
         ),
@@ -798,7 +940,6 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
   }
 
   Widget _buildAvatarFallback(String userName, double size) {
-    // Generate consistent colors based on first letter
     final letter = userName.isNotEmpty ? userName[0].toUpperCase() : '?';
     final colors = [
       [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],

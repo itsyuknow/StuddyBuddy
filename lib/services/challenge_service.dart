@@ -80,10 +80,14 @@ class ChallengeService {
   // Get all active challenges
   static Future<List<Map<String, dynamic>>> getChallenges({String? examId, String? difficulty}) async {
     try {
-      var query = _supabase.from('challenges');
+      var query = _supabase.from('challenges').select('''
+            *,
+            user_profiles (
+              full_name,
+              avatar_url
+            )
+          ''').eq('status', 'active');
 
-      // Apply filters first
-      query = query.eq('status', 'active');
       if (examId != null) {
         query = query.eq('exam_id', examId);
       }
@@ -91,16 +95,7 @@ class ChallengeService {
         query = query.eq('difficulty', difficulty);
       }
 
-      // Then select and order
-      final response = await query
-          .select('''
-            *,
-            user_profiles (
-              full_name,
-              avatar_url
-            )
-          ''')
-          .order('created_at', ascending: false);
+      final response = await query.order('created_at', ascending: false);
 
       return (response as List).map((challenge) {
         final userProfile = challenge['user_profiles'];
@@ -136,7 +131,6 @@ class ChallengeService {
     try {
       final response = await _supabase
           .from('challenges')
-          .eq('id', challengeId)
           .select('''
             *,
             user_profiles (
@@ -144,6 +138,7 @@ class ChallengeService {
               avatar_url
             )
           ''')
+          .eq('id', challengeId)
           .maybeSingle();
 
       if (response == null) return null;
@@ -184,9 +179,9 @@ class ChallengeService {
       // Check if already joined
       final existing = await _supabase
           .from('challenge_participants')
+          .select()
           .eq('challenge_id', challengeId)
           .eq('user_id', userId)
-          .select()
           .maybeSingle();
 
       if (existing != null) return true;
@@ -221,9 +216,9 @@ class ChallengeService {
 
       final response = await _supabase
           .from('challenge_participants')
+          .select()
           .eq('challenge_id', challengeId)
           .eq('user_id', userId)
-          .select()
           .maybeSingle();
 
       return response != null;
@@ -238,7 +233,6 @@ class ChallengeService {
     try {
       final response = await _supabase
           .from('challenge_participants')
-          .eq('challenge_id', challengeId)
           .select('''
             *,
             user_profiles (
@@ -246,6 +240,7 @@ class ChallengeService {
               avatar_url
             )
           ''')
+          .eq('challenge_id', challengeId)
           .order('progress', ascending: false);
 
       return (response as List).map((participant) {
@@ -304,9 +299,9 @@ class ChallengeService {
 
       await _supabase
           .from('challenge_participants')
+          .update(updateData)
           .eq('challenge_id', challengeId)
-          .eq('user_id', userId)
-          .update(updateData);
+          .eq('user_id', userId);
 
       return true;
     } catch (e) {
@@ -370,7 +365,6 @@ class ChallengeService {
     try {
       final response = await _supabase
           .from('challenge_updates')
-          .eq('challenge_id', challengeId)
           .select('''
             *,
             user_profiles (
@@ -378,6 +372,7 @@ class ChallengeService {
               avatar_url
             )
           ''')
+          .eq('challenge_id', challengeId)
           .order('created_at', ascending: false);
 
       return (response as List).map((update) {
@@ -407,17 +402,17 @@ class ChallengeService {
 
       final existing = await _supabase
           .from('challenge_likes')
+          .select()
           .eq('challenge_id', challengeId)
           .eq('user_id', userId)
-          .select()
           .maybeSingle();
 
       if (existing != null) {
         await _supabase
             .from('challenge_likes')
+            .delete()
             .eq('challenge_id', challengeId)
-            .eq('user_id', userId)
-            .delete();
+            .eq('user_id', userId);
         await _supabase.rpc('decrement_challenge_likes', params: {'challenge_id': challengeId});
       } else {
         await _supabase.from('challenge_likes').insert({
@@ -442,9 +437,9 @@ class ChallengeService {
 
       final response = await _supabase
           .from('challenge_likes')
+          .select()
           .eq('challenge_id', challengeId)
           .eq('user_id', userId)
-          .select()
           .maybeSingle();
 
       return response != null;
@@ -488,7 +483,6 @@ class ChallengeService {
     try {
       final response = await _supabase
           .from('challenge_comments')
-          .eq('challenge_id', challengeId)
           .select('''
             *,
             user_profiles (
@@ -496,6 +490,7 @@ class ChallengeService {
               avatar_url
             )
           ''')
+          .eq('challenge_id', challengeId)
           .order('created_at', ascending: false);
 
       return (response as List).map((comment) {
@@ -520,8 +515,8 @@ class ChallengeService {
     try {
       final response = await _supabase
           .from('exams')
-          .eq('id', examId)
           .select('strengths')
+          .eq('id', examId)
           .single();
 
       final strengths = response['strengths'] as List;
@@ -531,8 +526,4 @@ class ChallengeService {
       return [];
     }
   }
-}
-
-extension on SupabaseQueryBuilder {
-  eq(String s, String challengeId) {}
 }

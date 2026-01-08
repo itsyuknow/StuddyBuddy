@@ -680,6 +680,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
                 ),
                 const SizedBox(height: 12),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _buildDifficultyChip('easy', 'Easy', Colors.green),
                     const SizedBox(width: 8),
@@ -687,7 +688,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
                     const SizedBox(width: 8),
                     _buildDifficultyChip('hard', 'Hard', Colors.red),
                   ],
-                ),
+                )
               ],
             ),
           ),
@@ -719,16 +720,20 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
                   ],
                 ),
                 const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildDurationChip(3, '3 Days'),
-                    _buildDurationChip(7, '1 Week'),
-                    _buildDurationChip(14, '2 Weeks'),
-                    _buildDurationChip(30, '1 Month'),
-                  ],
-                ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildDurationChip(3, '3 Days'),
+                      const SizedBox(width: 8),
+                      _buildDurationChip(7, '1 Week'),
+                      const SizedBox(width: 8),
+                      _buildDurationChip(14, '2 Weeks'),
+                      const SizedBox(width: 8),
+                      _buildDurationChip(30, '1 Month'),
+                    ],
+                  ),
+                )
               ],
             ),
           ),
@@ -764,11 +769,11 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
 
   Widget _buildDifficultyChip(String value, String label, Color color) {
     final isSelected = _selectedDifficulty == value;
-    return Expanded(
+    return Flexible(  // Changed from Expanded to Flexible
       child: GestureDetector(
         onTap: () => setState(() => _selectedDifficulty = value),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),  // Added horizontal padding
           decoration: BoxDecoration(
             color: isSelected ? color.withOpacity(0.1) : Colors.white,
             borderRadius: BorderRadius.circular(10),

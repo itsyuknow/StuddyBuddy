@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/challenge_service.dart';
 import '../services/user_session.dart';
-
 
 class ChallengeDetailsScreen extends StatefulWidget {
   final String challengeId;
@@ -13,19 +11,18 @@ class ChallengeDetailsScreen extends StatefulWidget {
   State<ChallengeDetailsScreen> createState() => _ChallengeDetailsScreenState();
 }
 
-class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> with SingleTickerProviderStateMixin {
+class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
+    with SingleTickerProviderStateMixin {
   Map<String, dynamic>? _challenge;
   List<Map<String, dynamic>> _comments = [];
   List<Map<String, dynamic>> _participants = [];
   List<Map<String, dynamic>> _updates = [];
-  Map<String, bool> _commentLikes = {};
   bool _isLoading = true;
   bool _isLiked = false;
   bool _hasJoined = false;
   bool _isAuthenticated = false;
   final _commentController = TextEditingController();
   bool _isSubmittingComment = false;
-  final _supabase = Supabase.instance.client;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -54,10 +51,9 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> with Si
 
   Future<void> _checkAuthAndLoadChallenge() async {
     final isLoggedIn = await UserSession.checkLogin();
-    final currentUser = _supabase.auth.currentUser;
 
     setState(() {
-      _isAuthenticated = isLoggedIn && currentUser != null;
+      _isAuthenticated = isLoggedIn;
     });
 
     if (_isAuthenticated) {
@@ -79,115 +75,94 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> with Si
     setState(() => _isLoading = true);
 
     try {
-      // Since challenges are posts, we need to get the post first
-      // You'll need to update your PostService to have a getPostById method
-      // If you don't have it, here's a direct Supabase query:
-      final response = await _supabase
-          .from('posts')
-          .select('*')
-          .eq('id', widget.challengeId)
-          .maybeSingle();
+      print('=== DEBUG: Loading challenge ${widget.challengeId} ===');
 
-      if (response == null) {
-        setState(() => _isLoading = false);
+      // Get challenge details using ChallengeService
+      final challenge = await ChallengeService.getChallengeById(widget.challengeId);
+      print('Challenge data: $challenge');
+
+      if (challenge == null) {
+        print('ERROR: Challenge is null!');
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _challenge = null;
+          });
+        }
         return;
       }
 
-      // Get user profile for the post creator
-      final userResponse = await _supabase
-          .from('user_profiles')
-          .select('display_name, avatar_url, exam_id')
-          .eq('id', response['user_id'])
-          .maybeSingle();
-
-      // Combine post data with user info
-      final challenge = Map<String, dynamic>.from(response);
-      if (userResponse != null) {
-        challenge['user_name'] = userResponse['display_name'];
-        challenge['avatar_url'] = userResponse['avatar_url'];
+      // Validate and set default values for required fields
+      if (challenge['created_at'] == null) {
+        print('WARNING: Challenge missing created_at field');
+        challenge['created_at'] = DateTime.now().toIso8601String();
       }
 
-      // Since this is a post (not a separate challenge), add default values
-      challenge['subject'] = challenge['subject'] ?? 'General';
-      challenge['difficulty'] = challenge['difficulty'] ?? 'medium';
-      challenge['duration_days'] = challenge['duration_days'] ?? 7;
-      challenge['expires_at'] = challenge['expires_at'] ??
-          DateTime.now().add(const Duration(days: 7)).toIso8601String();
-      challenge['target_score'] = challenge['target_score'] ?? 100;
-
-      // Get comments from posts_comments table
-      final commentsResponse = await _supabase
-          .from('posts_comments')
-          .select('*, user_profiles(display_name, avatar_url)')
-          .eq('post_id', widget.challengeId)
-          .order('created_at', ascending: false);
-
-      final comments = commentsResponse.map((comment) {
-        final userProfile = comment['user_profiles'] as Map<String, dynamic>?;
-        return {
-          'id': comment['id'],
-          'user_id': comment['user_id'],
-          'user_name': userProfile?['display_name'] ?? 'User',
-          'avatar_url': userProfile?['avatar_url'],
-          'comment_text': comment['comment_text'],
-          'created_at': comment['created_at'],
-          'likes_count': comment['likes_count'] ?? 0,
-        };
-      }).toList();
-
-      // Check if user has liked this post
-      final userId = _supabase.auth.currentUser?.id;
-      bool hasLiked = false;
-      if (userId != null) {
-        final likeResponse = await _supabase
-            .from('posts_likes')
-            .select('id')
-            .eq('post_id', widget.challengeId)
-            .eq('user_id', userId)
-            .maybeSingle();
-        hasLiked = likeResponse != null;
+      if (challenge['expires_at'] == null) {
+        print('WARNING: Challenge missing expires_at field');
+        final durationDays = challenge['duration_days'] ?? 7;
+        challenge['expires_at'] = DateTime.now()
+            .add(Duration(days: durationDays as int))
+            .toIso8601String();
       }
 
-      // Check if user has joined (since you don't have a join system yet, set to false)
-      bool hasJoined = false;
+      // Ensure counts are not null
+      challenge['likes_count'] = challenge['likes_count'] ?? 0;
+      challenge['participants_count'] = challenge['participants_count'] ?? 0;
+      challenge['comments_count'] = challenge['comments_count'] ?? 0;
 
-      // Get participants (for now, we'll just get users who commented)
-      final participants = <Map<String, dynamic>>[];
-      for (var comment in comments) {
-        if (!participants.any((p) => p['user_id'] == comment['user_id'])) {
-          participants.add({
-            'user_id': comment['user_id'],
-            'user_name': comment['user_name'],
-            'avatar_url': comment['avatar_url'],
-            'progress': 0,
-            'completed': false,
-          });
-        }
+      // Get comments using ChallengeService
+      final comments = await ChallengeService.getComments(widget.challengeId);
+      print('Comments count: ${comments.length}');
+
+      // Get participants using ChallengeService
+      final participants = await ChallengeService.getParticipants(widget.challengeId);
+      print('Participants count: ${participants.length}');
+
+      // Get updates using ChallengeService
+      final updates = await ChallengeService.getUpdates(widget.challengeId);
+      print('Updates count: ${updates.length}');
+
+      // Check if user has liked this challenge
+      final hasLiked = await ChallengeService.hasUserLiked(widget.challengeId);
+      print('User has liked: $hasLiked');
+
+      // Check if user has joined this challenge
+      final hasJoined = await ChallengeService.hasUserJoinedChallenge(widget.challengeId);
+      print('User has joined: $hasJoined');
+
+      if (mounted) {
+        setState(() {
+          _challenge = challenge;
+          _comments = comments;
+          _participants = participants;
+          _updates = updates;
+          _isLiked = hasLiked;
+          _hasJoined = hasJoined;
+          _isLoading = false;
+        });
+        print('=== DEBUG: Data loaded successfully ===');
+        print('Challenge title: ${_challenge!['title']}');
+        print('UI should now update');
       }
-
-      // Updates (for now, empty list - you'll need to implement this separately)
-      final updates = <Map<String, dynamic>>[];
-
-      setState(() {
-        _challenge = challenge;
-        _comments = comments;
-        _participants = participants;
-        _updates = updates;
-        _isLiked = hasLiked;
-        _hasJoined = hasJoined;
-        _isLoading = false;
-      });
-    } catch (e) {
-      print('Error loading challenge: $e');
-      setState(() => _isLoading = false);
+    } catch (e, stackTrace) {
+      print('ERROR loading challenge: $e');
+      print('Stack trace: $stackTrace');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _challenge = null;
+        });
+      }
     }
+  }
+
+  Future<void> _refreshChallengeDetails() async {
+    await _loadChallengeDetails();
   }
 
   Future<void> _toggleLike() async {
     if (_challenge == null || !_isAuthenticated) return;
-
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
 
     final wasLiked = _isLiked;
     final currentLikes = _challenge!['likes_count'] as int;
@@ -197,25 +172,9 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> with Si
       _challenge!['likes_count'] = currentLikes + (wasLiked ? -1 : 1);
     });
 
-    try {
-      if (wasLiked) {
-        // Unlike
-        await _supabase
-            .from('posts_likes')
-            .delete()
-            .eq('post_id', widget.challengeId)
-            .eq('user_id', userId);
-      } else {
-        // Like
-        await _supabase
-            .from('posts_likes')
-            .insert({
-          'post_id': widget.challengeId,
-          'user_id': userId,
-        });
-      }
-    } catch (e) {
-      print('Error toggling like: $e');
+    final success = await ChallengeService.toggleLike(widget.challengeId);
+
+    if (!success) {
       setState(() {
         _isLiked = wasLiked;
         _challenge!['likes_count'] = currentLikes;
@@ -237,7 +196,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> with Si
         _challenge!['participants_count'] = (_challenge!['participants_count'] as int) + 1;
       });
       _showMessage('Challenge joined! Good luck! 🎯', isError: false);
-      await _loadChallengeDetails();
+      await _loadChallengeDetails(); // Reload to get updated participants list
     } else {
       _showMessage('Failed to join challenge', isError: true);
     }
@@ -249,39 +208,33 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> with Si
       return;
     }
 
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-
     final commentText = _commentController.text.trim();
     if (commentText.isEmpty) return;
 
     setState(() => _isSubmittingComment = true);
 
-    try {
-      await _supabase
-          .from('posts_comments')
-          .insert({
-        'post_id': widget.challengeId,
-        'user_id': userId,
-        'comment_text': commentText,
-      });
+    final success = await ChallengeService.addComment(widget.challengeId, commentText);
 
-      // Update comments count in the post
-      await _supabase
-          .from('posts')
-          .update({'comments_count': _challenge!['comments_count'] + 1})
-          .eq('id', widget.challengeId);
-
+    if (success) {
       setState(() => _isSubmittingComment = false);
       _commentController.clear();
       FocusScope.of(context).unfocus();
 
-      // Reload to get the new comment
-      await _loadChallengeDetails();
+      // Update comments count
+      if (_challenge != null) {
+        setState(() {
+          _challenge!['comments_count'] = (_challenge!['comments_count'] as int) + 1;
+        });
+      }
+
+      // Reload comments
+      final comments = await ChallengeService.getComments(widget.challengeId);
+      setState(() {
+        _comments = comments;
+      });
 
       _showMessage('Comment added!', isError: false);
-    } catch (e) {
-      print('Error adding comment: $e');
+    } else {
       setState(() => _isSubmittingComment = false);
       _showMessage('Failed to add comment', isError: true);
     }
@@ -409,17 +362,22 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> with Si
         child: Column(
           children: [
             Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildChallengeContent(),
-                    const SizedBox(height: 24),
-                    _buildTabBar(),
-                    const SizedBox(height: 16),
-                    _buildTabContent(),
-                  ],
+              child: RefreshIndicator(
+                onRefresh: _refreshChallengeDetails,
+                color: const Color(0xFF8A1FFF),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildChallengeContent(),
+                      const SizedBox(height: 24),
+                      _buildTabBar(),
+                      const SizedBox(height: 16),
+                      _buildTabContent(),
+                      const SizedBox(height: 80), // Add padding at bottom
+                    ],
+                  ),
                 ),
               ),
             ),

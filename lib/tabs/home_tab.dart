@@ -46,12 +46,15 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
     final isLoggedIn = await UserSession.checkLogin();
     final currentUser = _supabase.auth.currentUser;
 
+    print('User authenticated: $isLoggedIn, Current user: $currentUser'); // Debug
+
     setState(() {
       _isAuthenticated = isLoggedIn && currentUser != null;
     });
 
     if (_isAuthenticated) {
       await _loadUserExam();
+      print('User Exam ID after loading: $_userExamId'); // Debug
       await _loadPosts();
       await _loadChallenges();
     } else {
@@ -69,17 +72,26 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
 
       final response = await _supabase
           .from('user_profiles')
-          .select('exam_id')  // Changed from selected_exam_id to exam_id
+          .select('exam_id')
           .eq('id', userId)
           .maybeSingle();
 
       if (response != null) {
+        print('User exam ID: ${response['exam_id']}'); // Add debug print
         setState(() {
-          _userExamId = response['exam_id'];  // Changed from selected_exam_id to exam_id
+          _userExamId = response['exam_id'];
+        });
+      } else {
+        print('No user profile found'); // Debug print
+        setState(() {
+          _userExamId = null;
         });
       }
     } catch (e) {
       print('Error loading user exam: $e');
+      setState(() {
+        _userExamId = null;
+      });
     }
   }
 
@@ -134,30 +146,45 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
     setState(() => _isLoadingChallenges = true);
 
     try {
-      // Get all posts first
-      final allPosts = await PostService.getPosts();
+      print('Loading challenges for exam ID: $_userExamId'); // Debug print
 
-      // Filter ONLY posts with challenge_type = 'study_challenge'
-      final challenges = allPosts.where((post) => post['challenge_type'] == 'study_challenge').toList();
+      // First, let's get all challenges without filtering to see what's available
+      final allChallenges = await _supabase
+          .from('challenges')
+          .select('*')
+          .order('created_at', ascending: false);
 
-      // Load liked status for each challenge
+      print('Total challenges in database: ${allChallenges.length}'); // Debug print
+
+      // Now filter by user's exam
+      final filteredChallenges = <Map<String, dynamic>>[];
+
+      if (_userExamId != null) {
+        // Filter challenges that match user's exam
+        for (var challenge in allChallenges) {
+          print('Challenge exam ID: ${challenge['exam_id']}, User exam ID: $_userExamId'); // Debug
+          if (challenge['exam_id'] == _userExamId) {
+            filteredChallenges.add(challenge);
+          }
+        }
+      } else {
+        // If user has no exam selected, show all challenges
+        filteredChallenges.addAll(allChallenges);
+      }
+
+      print('Filtered challenges count: ${filteredChallenges.length}'); // Debug print
+
+      // Load liked and joined status for each challenge
       final likedChallenges = <String, bool>{};
       final joinedChallenges = <String, bool>{};
 
-      for (var challenge in challenges) {
-        likedChallenges[challenge['id']] = await PostService.hasUserLiked(challenge['id']);
-        // Set joined status (you'll need to implement this properly later)
-        joinedChallenges[challenge['id']] = false;
-
-        // Add default values for missing challenge fields
-        challenge['subject'] = challenge['subject'] ?? 'General';
-        challenge['difficulty'] = challenge['difficulty'] ?? 'medium';
-        challenge['duration_days'] = challenge['duration_days'] ?? 7;
-        challenge['participants_count'] = challenge['participants_count'] ?? 0;
+      for (var challenge in filteredChallenges) {
+        likedChallenges[challenge['id']] = await ChallengeService.hasUserLiked(challenge['id']);
+        joinedChallenges[challenge['id']] = await ChallengeService.hasUserJoinedChallenge(challenge['id']);
       }
 
       setState(() {
-        _challenges = challenges;
+        _challenges = filteredChallenges;
         _likedChallenges = likedChallenges;
         _joinedChallenges = joinedChallenges;
         _isLoadingChallenges = false;
@@ -210,8 +237,8 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
       challenge['likes_count'] = currentLikes + (wasLiked ? -1 : 1);
     });
 
-    // Use PostService since challenges are actually posts
-    final success = await PostService.toggleLike(challengeId);
+    // Use ChallengeService for challenges table
+    final success = await ChallengeService.toggleLike(challengeId);
 
     if (!success) {
       setState(() {
@@ -502,9 +529,10 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
   }
 
   Widget _buildPostCard(Map<String, dynamic> post) {
+    final avatarUrl = post['avatar_url'];
     final createdAt = DateTime.parse(post['created_at']);
     final timeAgo = _getTimeAgo(createdAt);
-    final avatarUrl = post['avatar_url'];
+
     final postId = post['id'];
     final isLiked = _likedPosts[postId] ?? false;
 
@@ -946,19 +974,55 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
   }
 
   Widget _buildAvatar(String? avatarUrl, String userName) {
+    // Debug: Print what we're receiving
+    print('Building avatar for $userName: "$avatarUrl"');
+
     if (avatarUrl != null && avatarUrl.isNotEmpty && avatarUrl != 'null') {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Image.network(
-          avatarUrl,
-          width: 48,
-          height: 48,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return _buildAvatarFallback(userName);
-          },
-        ),
-      );
+      // Try to parse and validate the URL
+      try {
+        final uri = Uri.parse(avatarUrl);
+        if (uri.isAbsolute) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.network(
+              avatarUrl,
+              width: 48,
+              height: 48,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                          loadingProgress.expectedTotalBytes!
+                          : null,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                print('Error loading avatar: $error');
+                return _buildAvatarFallback(userName);
+              },
+            ),
+          );
+        } else {
+          print('Invalid URL format: $avatarUrl');
+          return _buildAvatarFallback(userName);
+        }
+      } catch (e) {
+        print('Error parsing avatar URL: $e');
+        return _buildAvatarFallback(userName);
+      }
     }
     return _buildAvatarFallback(userName);
   }

@@ -25,7 +25,7 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
   bool _isLoading = true;
   bool _isLoadingPosts = true;
   bool _isStudyProfileExpanded = false;
-  bool _showingPosts = true; // true = posts, false = challenges
+  bool _showingPosts = true;
   int _followersCount = 0;
   int _followingCount = 0;
 
@@ -98,7 +98,6 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
       final allPosts = await PostService.getPosts();
       final userPosts = allPosts.where((post) => post['user_id'] == userId).toList();
 
-      // Separate normal posts and challenges
       final normalPosts = userPosts.where((post) => post['challenge_type'] == null).toList();
       final challenges = userPosts.where((post) => post['challenge_type'] != null).toList();
 
@@ -153,9 +152,9 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
               Text('Profile picture updated!'),
             ],
           ),
-          backgroundColor: Colors.green,
+          backgroundColor: const Color(0xFF8A1FFF),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           margin: const EdgeInsets.all(16),
         ),
       );
@@ -164,8 +163,9 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.red.shade400,
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           margin: const EdgeInsets.all(16),
         ),
       );
@@ -186,171 +186,411 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
 
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: const Color(0xFFFAFAFA),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Colors.blue.shade400, Colors.purple.shade400],
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+            ),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 70,
+                  height: 70,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.2),
+                    border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+                  ),
+                  child: const CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 3,
                   ),
                 ),
-                child: const CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 3,
+                const SizedBox(height: 24),
+                const Text(
+                  'Loading your profile...',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text('Loading profile...', style: TextStyle(color: Colors.grey.shade600)),
-            ],
+              ],
+            ),
           ),
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      body: RefreshIndicator(
-        onRefresh: _refreshProfile,
-        color: Colors.black,
-        child: CustomScrollView(
-          slivers: [
-            _buildAppBar(),
-            SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  Container(
-                    color: Colors.white,
-                    child: Column(
-                      children: [
-                        _buildProfileHeader(),
-                        _buildBio(),
-                        _buildActionButtons(),
-                        const SizedBox(height: 12),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _buildEducationInfo(),
-                  const SizedBox(height: 8),
-                  _buildStudyProfile(),
-                  const SizedBox(height: 8),
-                  _buildInterestsSection(),
-                  const SizedBox(height: 8),
-                  _buildPostsSection(),
-                  const SizedBox(height: 80),
-                ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+          ),
+        ),
+        child: RefreshIndicator(
+          onRefresh: _refreshProfile,
+          color: Colors.white,
+          backgroundColor: const Color(0xFF8A1FFF),
+          child: CustomScrollView(
+            slivers: [
+              _buildModernAppBar(),
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    _buildGlassProfileHeader(),
+                    const SizedBox(height: 20),
+                    _buildContentSections(),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildModernAppBar() {
     return SliverAppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       elevation: 0,
       pinned: true,
+      expandedHeight: 0,
       automaticallyImplyLeading: false,
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF8A1FFF).withOpacity(0.95),
+              const Color(0xFFC43AFF).withOpacity(0.95),
+            ],
+          ),
+        ),
+      ),
       title: Row(
         children: [
-          const Icon(Icons.lock_outline, size: 18, color: Colors.black),
-          const SizedBox(width: 6),
-          Text(
-            _userData?['username'] ?? _userData?['full_name'] ?? 'Profile',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.lock_outline, size: 16, color: Colors.white),
+                const SizedBox(width: 6),
+                Text(
+                  _userData?['username'] ?? _userData?['full_name'] ?? 'Profile',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
           ),
-          const Icon(Icons.keyboard_arrow_down, color: Colors.black, size: 20),
         ],
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.add_box_outlined, color: Colors.black, size: 28),
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withOpacity(0.3)),
+            ),
+            child: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+          ),
           onPressed: () {},
         ),
         IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black, size: 28),
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withOpacity(0.3)),
+            ),
+            child: const Icon(Icons.menu_rounded, color: Colors.white, size: 20),
+          ),
           onPressed: _showOptionsMenu,
         ),
+        const SizedBox(width: 8),
       ],
     );
   }
 
-  Widget _buildProfileHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Row(
+  Widget _buildGlassProfileHeader() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
         children: [
-          GestureDetector(
-            onTap: _updateAvatar,
-            child: Stack(
+          // Avatar and stats in a column for small screens
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isSmallScreen = constraints.maxWidth < 400;
+
+              if (isSmallScreen) {
+                return Column(
+                  children: [
+                    GestureDetector(
+                      onTap: _updateAvatar,
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.white.withOpacity(0.4),
+                                  Colors.white.withOpacity(0.2),
+                                ],
+                              ),
+                              border: Border.all(color: Colors.white.withOpacity(0.5), width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
+                            ),
+                            padding: const EdgeInsets.all(3),
+                            child: _buildAvatar(_userData?['avatar_url'], _userData?['full_name'] ?? 'U', 94),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFFFFFFF), Color(0xFFF0F0F0)],
+                                ),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 3),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 8,
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.edit_rounded, size: 16, color: Color(0xFF8A1FFF)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Stats row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildGlassStatColumn(_userPosts.length.toString(), 'Posts', null),
+                        _buildGlassStatColumn(_followersCount.toString(), 'Followers', () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => FollowersListScreen(userId: _supabase.auth.currentUser!.id, initialTab: 0),
+                            ),
+                          ).then((_) => _loadFollowCounts());
+                        }),
+                        _buildGlassStatColumn(_followingCount.toString(), 'Following', () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => FollowersListScreen(userId: _supabase.auth.currentUser!.id, initialTab: 1),
+                            ),
+                          ).then((_) => _loadFollowCounts());
+                        }),
+                      ],
+                    ),
+                  ],
+                );
+              } else {
+                // Original row layout for larger screens
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GestureDetector(
+                      onTap: _updateAvatar,
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.white.withOpacity(0.4),
+                                  Colors.white.withOpacity(0.2),
+                                ],
+                              ),
+                              border: Border.all(color: Colors.white.withOpacity(0.5), width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
+                            ),
+                            padding: const EdgeInsets.all(3),
+                            child: _buildAvatar(_userData?['avatar_url'], _userData?['full_name'] ?? 'U', 94),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFFFFFFF), Color(0xFFF0F0F0)],
+                                ),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 3),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 8,
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.edit_rounded, size: 16, color: Color(0xFF8A1FFF)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: _buildGlassStatColumn(_userPosts.length.toString(), 'Posts', null),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: _buildGlassStatColumn(_followersCount.toString(), 'Followers', () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => FollowersListScreen(userId: _supabase.auth.currentUser!.id, initialTab: 0),
+                                ),
+                              ).then((_) => _loadFollowCounts());
+                            }),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: _buildGlassStatColumn(_followingCount.toString(), 'Following', () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => FollowersListScreen(userId: _supabase.auth.currentUser!.id, initialTab: 1),
+                                ),
+                              ).then((_) => _loadFollowCounts());
+                            }),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 20),
+
+          // User info
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 86,
-                  height: 86,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topRight,
-                      end: Alignment.bottomLeft,
-                      colors: [Colors.purple.shade400, Colors.pink.shade400, Colors.orange.shade400],
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(2),
-                  child: Container(
-                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                    padding: const EdgeInsets.all(2),
-                    child: _buildAvatar(_userData?['avatar_url'], _userData?['full_name'] ?? 'U', 80),
+                Text(
+                  _userData?['full_name'] ?? 'User',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
                   ),
                 ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0095F6),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                if (_userData?['bio'] != null && _userData!['bio'].isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _userData!['bio'],
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.5,
+                      color: Colors.white.withOpacity(0.9),
+                      letterSpacing: 0.3,
                     ),
-                    child: const Icon(Icons.add, size: 14, color: Colors.white),
                   ),
-                ),
+                ],
               ],
             ),
           ),
-          const SizedBox(width: 28),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatColumn(_userPosts.length.toString(), 'Posts', null),
-                _buildStatColumn(_followersCount.toString(), 'Followers', () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => FollowersListScreen(userId: _supabase.auth.currentUser!.id, initialTab: 0),
-                    ),
-                  ).then((_) => _loadFollowCounts());
-                }),
-                _buildStatColumn(_followingCount.toString(), 'Following', () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => FollowersListScreen(userId: _supabase.auth.currentUser!.id, initialTab: 1),
-                    ),
-                  ).then((_) => _loadFollowCounts());
-                }),
-              ],
-            ),
+          const SizedBox(height: 20),
+
+          // Buttons
+          Row(
+            children: [
+              Expanded(
+                child: _buildGlassButton(
+                  'Edit Profile',
+                  Icons.edit_rounded,
+                      () async {
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen()));
+                    _loadUserData();
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildGlassButton(
+                  'Share',
+                  Icons.share_rounded,
+                      () {},
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -378,121 +618,218 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(colors: [Colors.blue.shade400, Colors.purple.shade400]),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.9),
+            Colors.white.withOpacity(0.7),
+          ],
+        ),
       ),
       child: Center(
         child: Text(
           userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-          style: TextStyle(fontSize: size * 0.4, fontWeight: FontWeight.w600, color: Colors.white),
+          style: TextStyle(
+            fontSize: size * 0.4,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF8A1FFF),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStatColumn(String value, String label, VoidCallback? onTap) {
+  Widget _buildGlassStatColumn(String value, String label, VoidCallback? onTap) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        children: [
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black)),
-          const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 13, color: Colors.black)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBio() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(_userData?['full_name'] ?? 'User', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black)),
-          if (_userData?['bio'] != null && _userData!['bio'].isNotEmpty) ...[
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), // Reduced padding
+        constraints: const BoxConstraints(
+          minWidth: 60, // Minimum width
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.3)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 18, // Slightly smaller
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
             const SizedBox(height: 4),
-            Text(_userData!['bio'], style: const TextStyle(fontSize: 14, height: 1.4, color: Colors.black)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11, // Slightly smaller
+                color: Colors.white.withOpacity(0.8),
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildActionButtons() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 32,
-              decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
-              child: ElevatedButton(
-                onPressed: () async {
-                  await Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen()));
-                  _loadUserData();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.grey.shade200,
-                  foregroundColor: Colors.black,
-                  elevation: 0,
-                  padding: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text('Edit profile', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Container(
-              height: 32,
-              decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
-              child: ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.grey.shade200,
-                  foregroundColor: Colors.black,
-                  elevation: 0,
-                  padding: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text('Share profile', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEducationInfo() {
-    if (_userData?['institution_name'] == null) return const SizedBox.shrink();
+  Widget _buildGlassButton(String text, IconData icon, VoidCallback onPressed) {
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.all(16),
+      height: 44,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withOpacity(0.3),
+            Colors.white.withOpacity(0.2),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(14),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: Colors.white),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  text,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContentSections() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.98),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(32),
+          topRight: Radius.circular(32),
+        ),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 50,
+            height: 5,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          const SizedBox(height: 20),
+          _buildEducationCard(),
+          _buildStudyProfileCard(),
+          _buildInterestsCard(),
+          _buildPostsSection(),
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEducationCard() {
+    if (_userData?['institution_name'] == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF8A1FFF).withOpacity(0.1),
+            const Color(0xFFC43AFF).withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF8A1FFF).withOpacity(0.2), width: 1.5),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.school_outlined, size: 16, color: Colors.grey.shade700),
-              const SizedBox(width: 6),
-              Text('Education', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.school_rounded, size: 20, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Education',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF8A1FFF),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(_userData!['institution_name'], style: const TextStyle(fontSize: 14, color: Colors.black)),
+          const SizedBox(height: 16),
+          Text(
+            _userData!['institution_name'],
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
           if (_userData?['major_subject'] != null) ...[
-            const SizedBox(height: 4),
-            Text(_userData!['major_subject'], style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+            const SizedBox(height: 6),
+            Text(
+              _userData!['major_subject'],
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade700,
+              ),
+            ),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildStudyProfile() {
+  Widget _buildStudyProfileCard() {
     final hasData = (_userData?['exam_id'] != null) ||
         (_userData?['strengths']?.isNotEmpty ?? false) ||
         (_userData?['weaknesses']?.isNotEmpty ?? false) ||
@@ -502,26 +839,72 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
     if (!hasData) return const SizedBox.shrink();
 
     return Container(
-      color: Colors.white,
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF8A1FFF).withOpacity(0.1),
+            const Color(0xFFC43AFF).withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF8A1FFF).withOpacity(0.2), width: 1.5),
+      ),
       child: Column(
         children: [
           InkWell(
             onTap: () => setState(() => _isStudyProfileExpanded = !_isStudyProfileExpanded),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Row(
                 children: [
-                  const Text('Study Profile', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black)),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.auto_graph_rounded, size: 20, color: Colors.white),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Study Profile',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF8A1FFF),
+                    ),
+                  ),
                   const Spacer(),
-                  Icon(_isStudyProfileExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: Colors.black),
+                  Icon(
+                    _isStudyProfileExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    color: const Color(0xFF8A1FFF),
+                  ),
                 ],
               ),
             ),
           ),
           if (_isStudyProfileExpanded) ...[
-            const Divider(height: 1),
+            Container(
+              height: 1,
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.transparent,
+                    const Color(0xFF8A1FFF).withOpacity(0.3),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -531,24 +914,50 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
                       builder: (context, snapshot) {
                         if (snapshot.hasData && snapshot.data != null) {
                           final exam = snapshot.data!;
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF8A1FFF).withOpacity(0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Preparing for', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                const Text(
+                                  'Preparing for',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                                 const SizedBox(height: 8),
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8)),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(exam['short_name'] ?? '', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                                      const SizedBox(height: 4),
-                                      Text(exam['full_name'] ?? '', style: const TextStyle(fontSize: 12, color: Colors.white70)),
-                                    ],
+                                Text(
+                                  exam['short_name'] ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  exam['full_name'] ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.white70,
                                   ),
                                 ),
                               ],
@@ -559,24 +968,26 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
                       },
                     ),
                   if (_userData?['strengths']?.isNotEmpty ?? false)
-                    _buildTagSection('Strengths', _userData!['strengths'], Colors.green.shade50, Colors.green.shade700),
+                    _buildModernTagSection('Strengths', _userData!['strengths'], const Color(0xFF10B981), Icons.trending_up_rounded),
                   if (_userData?['weaknesses']?.isNotEmpty ?? false)
-                    _buildTagSection('Weaknesses', _userData!['weaknesses'], Colors.red.shade50, Colors.red.shade700),
+                    _buildModernTagSection('Weaknesses', _userData!['weaknesses'], const Color(0xFFEF4444), Icons.trending_down_rounded),
                   if (_userData?['skills']?.isNotEmpty ?? false)
-                    _buildTagSection('Skills', _userData!['skills'], Colors.blue.shade50, Colors.blue.shade700),
+                    _buildModernTagSection('Skills', _userData!['skills'], const Color(0xFF3B82F6), Icons.lightbulb_rounded),
                   if (_userData?['study_issues']?.isNotEmpty ?? false)
-                    _buildTagSection('Study Issues', _userData!['study_issues'], Colors.orange.shade50, Colors.orange.shade700),
+                    _buildModernTagSection('Study Issues', _userData!['study_issues'], const Color(0xFFF59E0B), Icons.error_outline_rounded),
                   const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
+                    child: ElevatedButton.icon(
                       onPressed: _showEditStudyProfileDialog,
-                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      icon: const Icon(Icons.edit_rounded, size: 18),
                       label: const Text('Edit Study Profile'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.black,
-                        side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8A1FFF),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
                       ),
                     ),
                   ),
@@ -597,26 +1008,46 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
     }
   }
 
-  Widget _buildTagSection(String title, List<dynamic> items, Color bgColor, Color textColor) {
+  Widget _buildModernTagSection(String title, List<dynamic> items, Color color, IconData icon) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
-          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           Wrap(
-            spacing: 6,
-            runSpacing: 6,
+            spacing: 8,
+            runSpacing: 8,
             children: items.map((item) {
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: textColor.withOpacity(0.2)),
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: color.withOpacity(0.3), width: 1.5),
                 ),
-                child: Text(item.toString(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: textColor)),
+                child: Text(
+                  item.toString(),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: color,
+                  ),
+                ),
               );
             }).toList(),
           ),
@@ -625,25 +1056,77 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildInterestsSection() {
-    if (_userData?['interests'] == null || _userData!['interests'].isEmpty) return const SizedBox.shrink();
+  Widget _buildInterestsCard() {
+    if (_userData?['interests'] == null || _userData!['interests'].isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF8A1FFF).withOpacity(0.1),
+            const Color(0xFFC43AFF).withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF8A1FFF).withOpacity(0.2), width: 1.5),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Interests', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black)),
-          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.favorite_rounded, size: 20, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Interests',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF8A1FFF),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 10,
+            runSpacing: 10,
             children: (_userData!['interests'] as List).map((interest) {
-              return Chip(
-                label: Text(interest.toString()),
-                backgroundColor: Colors.grey.shade100,
-                side: BorderSide.none,
-                labelStyle: const TextStyle(fontSize: 13),
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF8A1FFF).withOpacity(0.15),
+                      const Color(0xFFC43AFF).withOpacity(0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF8A1FFF).withOpacity(0.3), width: 1.5),
+                ),
+                child: Text(
+                  interest.toString(),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF8A1FFF),
+                  ),
+                ),
               );
             }).toList(),
           ),
@@ -656,51 +1139,94 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
     final currentList = _showingPosts ? _userPosts : _userChallenges;
 
     return Container(
-      color: Colors.white,
+      margin: const EdgeInsets.only(top: 16),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Colors.grey.shade200),
-                bottom: BorderSide(color: Colors.grey.shade200),
-              ),
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
               children: [
                 Expanded(
                   child: GestureDetector(
                     onTap: () => setState(() => _showingPosts = true),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       decoration: BoxDecoration(
-                        border: _showingPosts
-                            ? Border(bottom: BorderSide(color: Colors.black, width: 1))
+                        gradient: _showingPosts
+                            ? const LinearGradient(
+                          colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                        )
                             : null,
+                        color: _showingPosts ? null : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: _showingPosts
+                              ? Colors.transparent
+                              : Colors.grey.shade300,
+                          width: 1.5,
+                        ),
                       ),
-                      child: Icon(
-                        Icons.grid_on,
-                        size: 24,
-                        color: _showingPosts ? Colors.black : Colors.grey.shade400,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.grid_on_rounded,
+                            size: 20,
+                            color: _showingPosts ? Colors.white : Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Posts',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: _showingPosts ? Colors.white : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: GestureDetector(
                     onTap: () => setState(() => _showingPosts = false),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       decoration: BoxDecoration(
-                        border: !_showingPosts
-                            ? Border(bottom: BorderSide(color: Colors.black, width: 1))
+                        gradient: !_showingPosts
+                            ? const LinearGradient(
+                          colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                        )
                             : null,
+                        color: !_showingPosts ? null : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: !_showingPosts
+                              ? Colors.transparent
+                              : Colors.grey.shade300,
+                          width: 1.5,
+                        ),
                       ),
-                      child: Icon(
-                        Icons.emoji_events,
-                        size: 24,
-                        color: !_showingPosts ? Colors.black : Colors.grey.shade400,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.emoji_events_rounded,
+                            size: 20,
+                            color: !_showingPosts ? Colors.white : Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Challenges',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: !_showingPosts ? Colors.white : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -709,7 +1235,11 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
             ),
           ),
           _isLoadingPosts
-              ? Container(height: 200, alignment: Alignment.center, child: const CircularProgressIndicator(color: Colors.black))
+              ? Container(
+            height: 200,
+            alignment: Alignment.center,
+            child: const CircularProgressIndicator(color: Color(0xFF8A1FFF)),
+          )
               : currentList.isEmpty
               ? Container(
             height: 300,
@@ -718,29 +1248,50 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: 100,
+                  height: 100,
                   decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF8A1FFF).withOpacity(0.2),
+                        const Color(0xFFC43AFF).withOpacity(0.1),
+                      ],
+                    ),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.black, width: 2),
+                    border: Border.all(
+                      color: const Color(0xFF8A1FFF).withOpacity(0.3),
+                      width: 2,
+                    ),
                   ),
                   child: Icon(
-                    _showingPosts ? Icons.camera_alt_outlined : Icons.emoji_events_outlined,
-                    size: 40,
+                    _showingPosts ? Icons.photo_camera_rounded : Icons.emoji_events_rounded,
+                    size: 45,
+                    color: const Color(0xFF8A1FFF),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 Text(
-                  _showingPosts ? 'Share Photos' : 'No Challenges Yet',
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w300, color: Colors.black),
+                  _showingPosts ? 'No Posts Yet' : 'No Challenges Yet',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8A1FFF),
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  _showingPosts
-                      ? 'When you share photos, they will appear on your profile.'
-                      : 'When you create challenges, they will appear here.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, color: Colors.black54),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  child: Text(
+                    _showingPosts
+                        ? 'Share your study journey and connect with others'
+                        : 'Create challenges to motivate yourself and others',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                      height: 1.5,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -748,21 +1299,21 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
               : GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
+            padding: const EdgeInsets.all(20),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
-              crossAxisSpacing: 2,
-              mainAxisSpacing: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
             ),
             itemCount: currentList.length,
-            itemBuilder: (context, index) => _buildPostGridItem(currentList[index]),
+            itemBuilder: (context, index) => _buildModernPostGridItem(currentList[index]),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPostGridItem(Map<String, dynamic> post) {
+  Widget _buildModernPostGridItem(Map<String, dynamic> post) {
     final isChallenge = post['challenge_type'] != null;
 
     return GestureDetector(
@@ -773,60 +1324,98 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
         ).then((_) => _loadUserPosts());
       },
       child: Container(
-        color: Colors.grey.shade200,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (post['image_url'] != null)
-              Image.network(
-                post['image_url'],
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: Colors.grey.shade300,
-                  child: const Icon(Icons.broken_image, size: 40, color: Colors.white),
-                ),
-              )
-            else
-              Container(
-                color: Colors.grey.shade300,
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      isChallenge ? Icons.emoji_events : Icons.article_outlined,
-                      size: 32,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      post['title'] ?? '',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            if (isChallenge)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFBBF24),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Icon(Icons.emoji_events, size: 16, color: Colors.white),
-                ),
-              ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (post['image_url'] != null)
+                Image.network(
+                  post['image_url'],
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF8A1FFF).withOpacity(0.3),
+                          const Color(0xFFC43AFF).withOpacity(0.2),
+                        ],
+                      ),
+                    ),
+                    child: const Icon(Icons.broken_image_rounded, size: 35, color: Colors.white),
+                  ),
+                )
+              else
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF8A1FFF).withOpacity(0.8),
+                        const Color(0xFFC43AFF).withOpacity(0.6),
+                      ],
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        isChallenge ? Icons.emoji_events_rounded : Icons.article_rounded,
+                        size: 28,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        post['title'] ?? '',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              if (isChallenge)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.emoji_events_rounded, size: 14, color: Colors.white),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -844,68 +1433,72 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
         child: SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                width: 50,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.settings_outlined),
-                title: const Text('Settings and privacy'),
-                trailing: const Icon(Icons.chevron_right, size: 20),
-                onTap: () => Navigator.pop(context),
+              const SizedBox(height: 24),
+              _buildMenuOption(Icons.settings_rounded, 'Settings and privacy', () => Navigator.pop(context)),
+              _buildMenuOption(Icons.schedule_rounded, 'Your activity', () => Navigator.pop(context)),
+              _buildMenuOption(Icons.bookmark_rounded, 'Saved', () => Navigator.pop(context)),
+              _buildMenuOption(Icons.qr_code_2_rounded, 'QR code', () => Navigator.pop(context)),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                height: 1,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      Colors.grey.shade300,
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
               ),
-              ListTile(
-                leading: const Icon(Icons.schedule_outlined),
-                title: const Text('Your activity'),
-                trailing: const Icon(Icons.chevron_right, size: 20),
-                onTap: () => Navigator.pop(context),
-              ),
-              ListTile(
-                leading: const Icon(Icons.bookmark_border),
-                title: const Text('Saved'),
-                trailing: const Icon(Icons.chevron_right, size: 20),
-                onTap: () => Navigator.pop(context),
-              ),
-              ListTile(
-                leading: const Icon(Icons.qr_code_2_outlined),
-                title: const Text('QR code'),
-                trailing: const Icon(Icons.chevron_right, size: 20),
-                onTap: () => Navigator.pop(context),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text('Log out', style: TextStyle(color: Colors.red)),
-                onTap: () async {
+              _buildMenuOption(
+                Icons.logout_rounded,
+                'Log out',
+                    () async {
                   final navigatorContext = Navigator.of(context, rootNavigator: true).context;
                   Navigator.pop(context);
 
                   final confirm = await showDialog<bool>(
                     context: navigatorContext,
                     builder: (dialogContext) => AlertDialog(
-                      title: const Text('Log out'),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      title: const Text('Log out', style: TextStyle(fontWeight: FontWeight.bold)),
                       content: const Text('Are you sure you want to log out?'),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(dialogContext, false),
-                          child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                          child: Text('Cancel', style: TextStyle(color: Colors.grey.shade600)),
                         ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(dialogContext, true),
-                          child: const Text('Log out', style: TextStyle(color: Colors.red)),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(dialogContext, true),
+                            child: const Text('Log out', style: TextStyle(color: Colors.white)),
+                          ),
                         ),
                       ],
                     ),
@@ -918,8 +1511,15 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
                     barrierDismissible: false,
                     builder: (context) => WillPopScope(
                       onWillPop: () async => false,
-                      child: const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                          ),
+                        ),
+                        child: const Center(
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                        ),
                       ),
                     ),
                   );
@@ -929,9 +1529,7 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
                     await Future.delayed(const Duration(milliseconds: 200));
 
                     Navigator.of(navigatorContext).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                        builder: (_) => const ExamSelectionScreen(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const ExamSelectionScreen()),
                           (route) => false,
                     );
                   } catch (e) {
@@ -939,19 +1537,65 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
                     ScaffoldMessenger.of(navigatorContext).showSnackBar(
                       SnackBar(
                         content: Text('Error logging out: $e'),
-                        backgroundColor: Colors.red,
+                        backgroundColor: Colors.red.shade400,
                         behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         margin: const EdgeInsets.all(16),
                       ),
                     );
                   }
                 },
+                isDestructive: true,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildMenuOption(IconData icon, String title, VoidCallback onTap, {bool isDestructive = false}) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          gradient: isDestructive
+              ? LinearGradient(
+            colors: [
+              Colors.red.shade400.withOpacity(0.2),
+              Colors.red.shade300.withOpacity(0.1),
+            ],
+          )
+              : LinearGradient(
+            colors: [
+              const Color(0xFF8A1FFF).withOpacity(0.15),
+              const Color(0xFFC43AFF).withOpacity(0.1),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          icon,
+          color: isDestructive ? Colors.red.shade600 : const Color(0xFF8A1FFF),
+          size: 22,
+        ),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: isDestructive ? Colors.red.shade600 : Colors.black87,
+        ),
+      ),
+      trailing: Icon(
+        Icons.chevron_right_rounded,
+        size: 22,
+        color: Colors.grey.shade400,
+      ),
+      onTap: onTap,
     );
   }
 }

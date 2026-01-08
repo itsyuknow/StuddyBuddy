@@ -171,7 +171,7 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Colors.black))
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF8A1FFF)))
                 : _messages.isEmpty
                 ? _buildEmptyState()
                 : _buildMessagesList(),
@@ -187,7 +187,7 @@ class _ChatScreenState extends State<ChatScreen> {
       backgroundColor: Colors.white,
       elevation: 0.5,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.black),
+        icon: const Icon(Icons.arrow_back, color: Color(0xFF8A1FFF)),
         onPressed: () => Navigator.pop(context),
       ),
       title: Row(
@@ -206,8 +206,8 @@ class _ChatScreenState extends State<ChatScreen> {
               height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Colors.blue.shade400, Colors.purple.shade400],
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
                 ),
               ),
               child: _buildAvatar(
@@ -247,7 +247,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.videocam_outlined, color: Colors.black),
+          icon: const Icon(Icons.videocam_outlined, color: Color(0xFF8A1FFF)),
           onPressed: () {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -258,7 +258,7 @@ class _ChatScreenState extends State<ChatScreen> {
           },
         ),
         IconButton(
-          icon: const Icon(Icons.phone_outlined, color: Colors.black),
+          icon: const Icon(Icons.phone_outlined, color: Color(0xFF8A1FFF)),
           onPressed: () {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -404,7 +404,12 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: isMe ? Colors.black : Colors.white,
+                gradient: isMe
+                    ? const LinearGradient(
+                  colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                )
+                    : null,
+                color: isMe ? null : Colors.white,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(20),
                   topRight: const Radius.circular(20),
@@ -446,7 +451,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         Icon(
                           message['is_read'] == true ? Icons.done_all : Icons.done,
                           size: 14,
-                          color: message['is_read'] == true ? Colors.blue : Colors.white70,
+                          color: message['is_read'] == true ? Colors.white : Colors.white70,
                         ),
                       ],
                     ],
@@ -512,7 +517,9 @@ class _ChatScreenState extends State<ChatScreen> {
               width: 40,
               height: 40,
               decoration: const BoxDecoration(
-                color: Colors.black,
+                gradient: LinearGradient(
+                  colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                ),
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -557,10 +564,10 @@ class _ChatScreenState extends State<ChatScreen> {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [Colors.blue.shade400, Colors.purple.shade400],
+          colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
         ),
       ),
       child: Center(

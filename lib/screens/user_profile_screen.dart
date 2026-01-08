@@ -174,16 +174,37 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          ),
+        ),
+      );
     }
 
     if (_userData == null) {
       return Scaffold(
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -200,7 +221,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             child: Column(
               children: [
                 Container(
-                  color: Colors.white,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
                   child: Column(
                     children: [
                       _buildProfileHeader(),
@@ -229,26 +256,34 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Widget _buildAppBar() {
     return SliverAppBar(
-      backgroundColor: Colors.white,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+      ),
       elevation: 0,
       pinned: true,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.black),
+        icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: () => Navigator.pop(context),
       ),
       title: Row(
         children: [
-          const Icon(Icons.lock_outline, size: 18, color: Colors.black),
+          const Icon(Icons.lock_outline, size: 18, color: Colors.white),
           const SizedBox(width: 6),
           Text(
             _userData?['username'] ?? _userData?['full_name'] ?? 'Profile',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
           ),
         ],
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.more_vert, color: Colors.black),
+          icon: const Icon(Icons.more_vert, color: Colors.white),
           onPressed: _showOptionsMenu,
         ),
       ],
@@ -265,15 +300,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             height: 86,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 begin: Alignment.topRight,
                 end: Alignment.bottomLeft,
-                colors: [Colors.purple.shade400, Colors.pink.shade400, Colors.orange.shade400],
+                colors: [Colors.white, Colors.white70],
               ),
             ),
             padding: const EdgeInsets.all(2),
             child: Container(
-              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
               padding: const EdgeInsets.all(2),
               child: _buildAvatar(_userData?['avatar_url'], _userData?['full_name'] ?? 'U', 80),
             ),
@@ -327,14 +365,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(colors: [Colors.blue.shade400, Colors.purple.shade400]),
+        color: Colors.white,
       ),
       child: Center(
         child: Text(
           userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-          style: TextStyle(fontSize: size * 0.4, fontWeight: FontWeight.w600, color: Colors.white),
+          style: TextStyle(
+            fontSize: size * 0.4,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF8A1FFF),
+          ),
         ),
       ),
     );
@@ -345,9 +387,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       onTap: onTap,
       child: Column(
         children: [
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black)),
+          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white)),
           const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 13, color: Colors.black)),
+          Text(label, style: const TextStyle(fontSize: 13, color: Colors.white)),
         ],
       ),
     );
@@ -363,14 +405,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             child: Container(
               height: 32,
               decoration: BoxDecoration(
-                color: _isFollowing ? Colors.grey.shade200 : Colors.black,
+                color: _isFollowing ? Colors.white.withOpacity(0.3) : Colors.white,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: ElevatedButton(
                 onPressed: _isCheckingFollow ? null : _toggleFollow,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _isFollowing ? Colors.grey.shade200 : Colors.black,
-                  foregroundColor: _isFollowing ? Colors.black : Colors.white,
+                  backgroundColor: _isFollowing ? Colors.white.withOpacity(0.3) : Colors.white,
+                  foregroundColor: _isFollowing ? Colors.white : const Color(0xFF8A1FFF),
                   elevation: 0,
                   padding: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -387,12 +429,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             flex: 3,
             child: Container(
               height: 32,
-              decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: ElevatedButton(
                 onPressed: _openChat,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.grey.shade200,
-                  foregroundColor: Colors.black,
+                  backgroundColor: Colors.white.withOpacity(0.3),
+                  foregroundColor: Colors.white,
                   elevation: 0,
                   padding: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -413,9 +458,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(_userData?['full_name'] ?? 'User', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black)),
+          Text(
+            _userData?['full_name'] ?? 'User',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+          ),
           const SizedBox(height: 4),
-          Text(_userData!['bio'], style: const TextStyle(fontSize: 14, height: 1.4, color: Colors.black)),
+          Text(
+            _userData!['bio'],
+            style: const TextStyle(fontSize: 14, height: 1.4, color: Colors.white),
+          ),
         ],
       ),
     );
@@ -496,7 +547,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 Container(
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8)),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
@@ -617,13 +673,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
                         border: _showingPosts
-                            ? Border(bottom: BorderSide(color: Colors.black, width: 1))
+                            ? const Border(bottom: BorderSide(color: Color(0xFF8A1FFF), width: 2))
                             : null,
                       ),
                       child: Icon(
                         Icons.grid_on,
                         size: 24,
-                        color: _showingPosts ? Colors.black : Colors.grey.shade400,
+                        color: _showingPosts ? const Color(0xFF8A1FFF) : Colors.grey.shade400,
                       ),
                     ),
                   ),
@@ -635,13 +691,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
                         border: !_showingPosts
-                            ? Border(bottom: BorderSide(color: Colors.black, width: 1))
+                            ? const Border(bottom: BorderSide(color: Color(0xFF8A1FFF), width: 2))
                             : null,
                       ),
                       child: Icon(
                         Icons.emoji_events,
                         size: 24,
-                        color: !_showingPosts ? Colors.black : Colors.grey.shade400,
+                        color: !_showingPosts ? const Color(0xFF8A1FFF) : Colors.grey.shade400,
                       ),
                     ),
                   ),
@@ -650,7 +706,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ),
           ),
           _isLoadingPosts
-              ? Container(height: 200, alignment: Alignment.center, child: const CircularProgressIndicator(color: Colors.black))
+              ? Container(
+            height: 200,
+            alignment: Alignment.center,
+            child: const CircularProgressIndicator(color: Color(0xFF8A1FFF)),
+          )
               : currentList.isEmpty
               ? Container(
             height: 300,
@@ -663,11 +723,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.black, width: 2),
+                    border: Border.all(color: const Color(0xFF8A1FFF), width: 2),
                   ),
                   child: Icon(
                     _showingPosts ? Icons.camera_alt_outlined : Icons.emoji_events_outlined,
                     size: 40,
+                    color: const Color(0xFF8A1FFF),
                   ),
                 ),
                 const SizedBox(height: 16),

@@ -53,7 +53,9 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: Colors.black,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                        ),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Center(
@@ -100,7 +102,7 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
                 const SizedBox(height: 48),
                 Container(
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.black, width: 2),
+                    border: Border.all(color: const Color(0xFF8A1FFF), width: 2),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
@@ -109,7 +111,9 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: const BoxDecoration(
-                          color: Colors.black,
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                          ),
                           borderRadius: BorderRadius.only(
                             topLeft: Radius.circular(14),
                             topRight: Radius.circular(14),
@@ -158,7 +162,7 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
                               child: Padding(
                                 padding: EdgeInsets.all(40),
                                 child: CircularProgressIndicator(
-                                  color: Colors.black,
+                                  color: Color(0xFF8A1FFF),
                                 ),
                               ),
                             )
@@ -178,11 +182,16 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
                                     const EdgeInsets.only(bottom: 12),
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
+                                      gradient: isSelected
+                                          ? const LinearGradient(
+                                        colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                                      )
+                                          : null,
                                       color: isSelected
-                                          ? Colors.black
+                                          ? null
                                           : Colors.white,
                                       border: Border.all(
-                                        color: Colors.black,
+                                        color: const Color(0xFF8A1FFF),
                                         width: 2,
                                       ),
                                       borderRadius:
@@ -201,7 +210,7 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
                                             border: Border.all(
                                               color: isSelected
                                                   ? Colors.white
-                                                  : Colors.black,
+                                                  : const Color(0xFF8A1FFF),
                                               width: 2,
                                             ),
                                           ),
@@ -210,7 +219,7 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
                                             child: Icon(
                                               Icons.check,
                                               size: 14,
-                                              color: Colors.black,
+                                              color: Color(0xFF8A1FFF),
                                             ),
                                           )
                                               : null,
@@ -255,38 +264,50 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
                             const SizedBox(height: 24),
                             SizedBox(
                               width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: selectedExamId == null
-                                    ? null
-                                    : () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          StrengthSelectionScreen(
-                                            examData: selectedExamData!,
-                                          ),
-                                    ),
-                                  );
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  padding:
-                                  const EdgeInsets.symmetric(vertical: 18),
-                                  backgroundColor: selectedExamId == null
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: selectedExamId != null
+                                      ? const LinearGradient(
+                                    colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                                  )
+                                      : null,
+                                  color: selectedExamId == null
                                       ? Colors.grey.shade300
-                                      : Colors.black,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  elevation: 0,
+                                      : null,
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Text(
-                                  'Continue',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
+                                child: ElevatedButton(
+                                  onPressed: selectedExamId == null
+                                      ? null
+                                      : () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            StrengthSelectionScreen(
+                                              examData: selectedExamData!,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    padding:
+                                    const EdgeInsets.symmetric(vertical: 18),
+                                    backgroundColor: Colors.transparent,
+                                    foregroundColor: Colors.white,
+                                    shadowColor: Colors.transparent,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  child: const Text(
+                                    'Continue',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -307,7 +328,7 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
                       width: index == 0 ? 32 : 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: index == 0 ? Colors.black : Colors.grey.shade300,
+                        color: index == 0 ? const Color(0xFF8A1FFF) : Colors.grey.shade300,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),

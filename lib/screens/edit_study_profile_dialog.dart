@@ -158,7 +158,7 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
           backgroundColor: Colors.white,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.close, color: Colors.black),
+            icon: const Icon(Icons.close, color: Color(0xFF8A1FFF)),
             onPressed: () => Navigator.pop(context),
           ),
           title: const Text(
@@ -172,7 +172,7 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
           centerTitle: false,
         ),
         body: _isLoading && _exams.isEmpty
-            ? const Center(child: CircularProgressIndicator(color: Colors.black))
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFF8A1FFF)))
             : Column(
           children: [
             // Progress indicator
@@ -241,7 +241,7 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
             child: LinearProgressIndicator(
               value: (_currentStep + 1) / 3,
               backgroundColor: Colors.grey.shade200,
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.black),
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8A1FFF)),
               minHeight: 6,
             ),
           ),
@@ -284,8 +284,13 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.black : Colors.white,
-                  border: Border.all(color: Colors.black, width: 2),
+                  gradient: isSelected
+                      ? const LinearGradient(
+                    colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                  )
+                      : null,
+                  color: isSelected ? null : Colors.white,
+                  border: Border.all(color: const Color(0xFF8A1FFF), width: 2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -297,13 +302,13 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
                         shape: BoxShape.circle,
                         color: isSelected ? Colors.white : Colors.transparent,
                         border: Border.all(
-                          color: isSelected ? Colors.white : Colors.black,
+                          color: isSelected ? Colors.white : const Color(0xFF8A1FFF),
                           width: 2,
                         ),
                       ),
                       child: isSelected
                           ? const Center(
-                        child: Icon(Icons.check, size: 14, color: Colors.black),
+                        child: Icon(Icons.check, size: 14, color: Color(0xFF8A1FFF)),
                       )
                           : null,
                     ),
@@ -449,8 +454,13 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.black : Colors.white,
-          border: Border.all(color: Colors.black, width: 2),
+          gradient: isSelected
+              ? const LinearGradient(
+            colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+          )
+              : null,
+          color: isSelected ? null : Colors.white,
+          border: Border.all(color: const Color(0xFF8A1FFF), width: 2),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -458,7 +468,7 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
           children: [
             Icon(
               isSelected ? Icons.check_circle : Icons.circle_outlined,
-              color: isSelected ? Colors.white : Colors.black,
+              color: isSelected ? Colors.white : const Color(0xFF8A1FFF),
               size: 20,
             ),
             const SizedBox(width: 8),
@@ -508,7 +518,7 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
                   onPressed: _previousStep,
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: Colors.black, width: 2),
+                    side: const BorderSide(color: Color(0xFF8A1FFF), width: 2),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -518,7 +528,7 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      color: Color(0xFF8A1FFF),
                     ),
                   ),
                 ),
@@ -526,36 +536,48 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
             if (_currentStep > 0) const SizedBox(width: 12),
             Expanded(
               flex: _currentStep > 0 ? 2 : 1,
-              child: ElevatedButton(
-                onPressed: !canProceed
-                    ? null
-                    : _currentStep == 2
-                    ? _saveProfile
-                    : _nextStep,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: canProceed ? Colors.black : Colors.grey.shade300,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: canProceed
+                      ? const LinearGradient(
+                    colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                  )
+                      : null,
+                  color: canProceed ? null : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: _isLoading
-                    ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
+                child: ElevatedButton(
+                  onPressed: !canProceed
+                      ? null
+                      : _currentStep == 2
+                      ? _saveProfile
+                      : _nextStep,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
                   ),
-                )
-                    : Text(
-                  _currentStep == 2 ? 'Update Profile' : 'Continue',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
+                  child: _isLoading
+                      ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : Text(
+                    _currentStep == 2 ? 'Update Profile' : 'Continue',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
               ),

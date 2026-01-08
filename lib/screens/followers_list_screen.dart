@@ -158,7 +158,7 @@ class _FollowersListScreenState extends State<FollowersListScreen>
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF8A1FFF)),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
@@ -167,9 +167,9 @@ class _FollowersListScreenState extends State<FollowersListScreen>
         ),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.black,
+          labelColor: const Color(0xFF8A1FFF),
           unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.black,
+          indicatorColor: const Color(0xFF8A1FFF),
           labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
           tabs: const [
             Tab(text: 'Followers'),
@@ -189,7 +189,7 @@ class _FollowersListScreenState extends State<FollowersListScreen>
 
   Widget _buildFollowersList(bool isOwnProfile) {
     if (_isLoadingFollowers) {
-      return const Center(child: CircularProgressIndicator(color: Colors.black));
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF8A1FFF)));
     }
 
     if (_followers.isEmpty) {
@@ -227,7 +227,7 @@ class _FollowersListScreenState extends State<FollowersListScreen>
 
   Widget _buildFollowingList(bool isOwnProfile) {
     if (_isLoadingFollowing) {
-      return const Center(child: CircularProgressIndicator(color: Colors.black));
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF8A1FFF)));
     }
 
     if (_following.isEmpty) {
@@ -328,29 +328,41 @@ class _FollowersListScreenState extends State<FollowersListScreen>
           : SizedBox(
         width: 100,
         height: 32,
-        child: ElevatedButton(
-          onPressed: isProcessing ? null : () => _toggleFollow(userId),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isFollowing ? Colors.grey.shade200 : Colors.black,
-            foregroundColor: isFollowing ? Colors.black : Colors.white,
-            elevation: 0,
-            padding: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: isFollowing
+                ? null
+                : const LinearGradient(
+              colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
             ),
+            color: isFollowing ? Colors.grey.shade200 : null,
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: isProcessing
-              ? SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: isFollowing ? Colors.black : Colors.white,
+          child: ElevatedButton(
+            onPressed: isProcessing ? null : () => _toggleFollow(userId),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              foregroundColor: isFollowing ? Colors.black : Colors.white,
+              shadowColor: Colors.transparent,
+              elevation: 0,
+              padding: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-          )
-              : Text(
-            isFollowing ? 'Following' : 'Follow',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            child: isProcessing
+                ? SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: isFollowing ? Colors.black : Colors.white,
+              ),
+            )
+                : Text(
+              isFollowing ? 'Following' : 'Follow',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
           ),
         ),
       ),
@@ -375,13 +387,24 @@ class _FollowersListScreenState extends State<FollowersListScreen>
 
     return CircleAvatar(
       radius: 24,
-      backgroundColor: Colors.blue.shade400,
-      child: Text(
-        userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+          ),
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Text(
+            userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
         ),
       ),
     );

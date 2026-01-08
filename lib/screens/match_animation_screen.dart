@@ -57,7 +57,7 @@ class _MatchAnimationScreenState extends State<MatchAnimationScreen>
       curve: Curves.easeOutBack,
     ));
 
-    // Heart animation
+    // Book animation
     _heartController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -160,15 +160,15 @@ class _MatchAnimationScreenState extends State<MatchAnimationScreen>
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: IconButton(
-                      icon: const Icon(Icons.close, size: 28),
+                      icon: const Icon(Icons.close, size: 28, color: Color(0xFF8A1FFF)),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
                 ),
 
-                const Spacer(),
+                const Spacer(flex: 1),
 
-                // Avatars with heart
+                // Avatars with book icon
                 SizedBox(
                   height: 200,
                   child: Stack(
@@ -200,7 +200,7 @@ class _MatchAnimationScreenState extends State<MatchAnimationScreen>
                         ),
                       ),
 
-                      // Heart in center
+                      // Book icon in center
                       AnimatedBuilder(
                         animation: _heartController,
                         builder: (context, child) {
@@ -212,19 +212,21 @@ class _MatchAnimationScreenState extends State<MatchAnimationScreen>
                                 width: 60,
                                 height: 60,
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                                  ),
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.pink.withOpacity(0.3),
+                                      color: const Color(0xFF8A1FFF).withOpacity(0.4),
                                       blurRadius: 20,
                                       spreadRadius: 5,
                                     ),
                                   ],
                                 ),
                                 child: const Icon(
-                                  Icons.favorite,
-                                  color: Colors.pink,
+                                  Icons.menu_book_rounded,
+                                  color: Colors.white,
                                   size: 32,
                                 ),
                               ),
@@ -244,11 +246,10 @@ class _MatchAnimationScreenState extends State<MatchAnimationScreen>
                   child: Column(
                     children: [
                       ShaderMask(
-                        shaderCallback: (bounds) => LinearGradient(
+                        shaderCallback: (bounds) => const LinearGradient(
                           colors: [
-                            Colors.pink.shade400,
-                            Colors.purple.shade400,
-                            Colors.blue.shade400,
+                            Color(0xFF8A1FFF),
+                            Color(0xFFC43AFF),
                           ],
                         ).createShader(bounds),
                         child: const Text(
@@ -292,22 +293,14 @@ class _MatchAnimationScreenState extends State<MatchAnimationScreen>
                       height: 160,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: widget.matchPercentage >= 90
-                              ? [const Color(0xFF10B981), const Color(0xFF059669)]
-                              : widget.matchPercentage >= 80
-                              ? [const Color(0xFF0EA5E9), const Color(0xFF0284C7)]
-                              : [const Color(0xFFF59E0B), const Color(0xFFEF4444)],
+                          colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: (widget.matchPercentage >= 90
-                                ? Colors.green
-                                : widget.matchPercentage >= 80
-                                ? Colors.blue
-                                : Colors.orange).withOpacity(0.3),
+                            color: const Color(0xFF8A1FFF).withOpacity(0.3),
                             blurRadius: 30,
                             spreadRadius: 5,
                           ),
@@ -343,36 +336,52 @@ class _MatchAnimationScreenState extends State<MatchAnimationScreen>
                   },
                 ),
 
-                const Spacer(),
+                const Spacer(flex: 1),
 
                 // Action buttons
                 FadeTransition(
                   opacity: _fadeAnimation,
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                     child: Column(
                       children: [
                         SizedBox(
                           width: double.infinity,
                           height: 56,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              // Navigate to chat or profile
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.black,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
                               ),
-                              elevation: 0,
+                              borderRadius: BorderRadius.all(Radius.circular(16)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Color(0x4D8A1FFF),
+                                  blurRadius: 15,
+                                  offset: Offset(0, 8),
+                                ),
+                              ],
                             ),
-                            child: const Text(
-                              'Say Hi 👋',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                // Navigate to chat or profile
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: Colors.white,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const Text(
+                                'Say Hi 👋',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ),
@@ -384,8 +393,8 @@ class _MatchAnimationScreenState extends State<MatchAnimationScreen>
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(context),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.black,
-                              side: const BorderSide(color: Colors.black, width: 2),
+                              foregroundColor: const Color(0xFF8A1FFF),
+                              side: const BorderSide(color: Color(0xFF8A1FFF), width: 2),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
@@ -417,18 +426,17 @@ class _MatchAnimationScreenState extends State<MatchAnimationScreen>
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
           colors: [
-            Colors.purple.shade400,
-            Colors.pink.shade400,
-            Colors.orange.shade400,
+            Color(0xFF8A1FFF),
+            Color(0xFFC43AFF),
           ],
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.purple.withOpacity(0.3),
+            color: const Color(0xFF8A1FFF).withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -461,10 +469,10 @@ class _MatchAnimationScreenState extends State<MatchAnimationScreen>
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [Colors.blue.shade400, Colors.purple.shade400],
+          colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
         ),
       ),
       child: Center(
@@ -493,12 +501,12 @@ class ConfettiPainter extends CustomPainter {
         x: random.nextDouble(),
         y: random.nextDouble() * 0.5 - 0.2,
         color: [
+          const Color(0xFF8A1FFF),
+          const Color(0xFFC43AFF),
           Colors.pink,
           Colors.blue,
           Colors.purple,
           Colors.orange,
-          Colors.yellow,
-          Colors.green,
         ][random.nextInt(6)],
         size: random.nextDouble() * 8 + 4,
         rotation: random.nextDouble() * math.pi * 2,

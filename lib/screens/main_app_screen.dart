@@ -78,7 +78,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? Colors.black : Colors.grey.shade400,
+              color: isSelected ? const Color(0xFF8A1FFF) : Colors.grey.shade400,
               size: 26,
             ),
             const SizedBox(height: 4),
@@ -87,7 +87,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? Colors.black : Colors.grey.shade400,
+                color: isSelected ? const Color(0xFF8A1FFF) : Colors.grey.shade400,
               ),
             ),
           ],
@@ -104,14 +104,14 @@ class _MainAppScreenState extends State<MainAppScreen> {
         height: 56,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Colors.black, Color(0xFF2C2C2C)],
+            colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: const Color(0xFF8A1FFF).withOpacity(0.3),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),

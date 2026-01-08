@@ -232,19 +232,32 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
     super.build(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildSearchHeader(),
-            if (_searchController.text.isEmpty) _buildTabButtons(),
-            Expanded(
+      backgroundColor: const Color(0xFF8A1FFF), // Match gradient top color
+      body: Column(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: _buildSearchHeader(),
+            ),
+          ),
+          if (_searchController.text.isEmpty) _buildTabButtons(),
+          Expanded(
+            child: Container(
+              color: const Color(0xFFFAFAFA),
               child: _searchController.text.isEmpty
                   ? _buildSuggestedSection()
                   : _buildSearchResults(),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -252,10 +265,9 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
   Widget _buildSearchHeader() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
+      decoration: const BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+          bottom: BorderSide(color: Colors.white24, width: 0.5),
         ),
       ),
       child: Column(
@@ -267,16 +279,17 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
               fontSize: 28,
               fontWeight: FontWeight.bold,
               letterSpacing: -0.5,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 12),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFEFEFEF),
+              color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
               border: _isSearchFocused
-                  ? Border.all(color: Colors.black, width: 1.5)
-                  : null,
+                  ? Border.all(color: Colors.white, width: 2)
+                  : Border.all(color: Colors.white.withOpacity(0.3), width: 1),
             ),
             child: TextField(
               controller: _searchController,
@@ -285,17 +298,18 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w400,
+                color: Colors.white,
               ),
               decoration: InputDecoration(
-                hintText: 'Search',
+                hintText: 'Search users...',
                 hintStyle: TextStyle(
-                  color: Colors.grey.shade500,
+                  color: Colors.white.withOpacity(0.7),
                   fontSize: 15,
                   fontWeight: FontWeight.w400,
                 ),
                 prefixIcon: Icon(
                   Icons.search,
-                  color: Colors.grey.shade600,
+                  color: Colors.white.withOpacity(0.9),
                   size: 22,
                 ),
                 suffixIcon: _searchController.text.isNotEmpty
@@ -308,13 +322,13 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
                   },
                   child: Container(
                     margin: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade400,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.close,
-                      color: Colors.white,
+                      color: Color(0xFF8A1FFF),
                       size: 16,
                     ),
                   ),
@@ -346,12 +360,17 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: _selectedTab == 'buddy' ? Colors.black : Colors.grey.shade100,
+                  gradient: _selectedTab == 'buddy'
+                      ? LinearGradient(
+                    colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
+                  )
+                      : null,
+                  color: _selectedTab == 'buddy' ? null : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
                   child: Text(
-                    'Find My Buddy',
+                    'My Match',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -369,12 +388,17 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: _selectedTab == 'others' ? Colors.black : Colors.grey.shade100,
+                  gradient: _selectedTab == 'others'
+                      ? LinearGradient(
+                    colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
+                  )
+                      : null,
+                  color: _selectedTab == 'others' ? null : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
                   child: Text(
-                    'Others',
+                    'My Mates',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -403,7 +427,7 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
-                  colors: [Colors.blue.shade400, Colors.purple.shade400],
+                  colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
                 ),
               ),
               child: const CircularProgressIndicator(
@@ -474,7 +498,7 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
 
     return RefreshIndicator(
       onRefresh: _loadSuggestedUsers,
-      color: Colors.black,
+      color: const Color(0xFF8A1FFF),
       child: ListView.builder(
         padding: const EdgeInsets.only(top: 8),
         itemCount: _buddyUsers.length,
@@ -521,7 +545,7 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
 
     return RefreshIndicator(
       onRefresh: _loadSuggestedUsers,
-      color: Colors.black,
+      color: const Color(0xFF8A1FFF),
       child: GridView.builder(
         padding: const EdgeInsets.all(16),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -558,9 +582,8 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
                 begin: Alignment.topRight,
                 end: Alignment.bottomLeft,
                 colors: [
-                  Colors.purple.shade400,
-                  Colors.pink.shade400,
-                  Colors.orange.shade400,
+                  const Color(0xFF8A1FFF),
+                  const Color(0xFFC43AFF),
                 ],
               ),
             ),
@@ -597,7 +620,7 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
                 const SizedBox(width: 2),
                 const Icon(
                   Icons.verified,
-                  color: Color(0xFF0095F6),
+                  color: Color(0xFF8A1FFF),
                   size: 12,
                 ),
               ],
@@ -623,21 +646,13 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
 
   Widget _buildSquareAvatarFallback(String userName) {
     final letter = userName.isNotEmpty ? userName[0].toUpperCase() : '?';
-    final colors = [
-      [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
-      [const Color(0xFFEC4899), const Color(0xFFF97316)],
-      [const Color(0xFF10B981), const Color(0xFF06B6D4)],
-      [const Color(0xFFF59E0B), const Color(0xFFEF4444)],
-      [const Color(0xFF3B82F6), const Color(0xFF8B5CF6)],
-    ];
-    final colorPair = colors[letter.hashCode % colors.length];
 
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: colorPair,
+          colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
         ),
       ),
       child: Center(
@@ -663,7 +678,7 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: LinearGradient(
-              colors: [Colors.blue.shade400, Colors.purple.shade400],
+              colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
             ),
           ),
           child: const CircularProgressIndicator(
@@ -749,9 +764,8 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
                   begin: Alignment.topRight,
                   end: Alignment.bottomLeft,
                   colors: [
-                    Colors.purple.shade400,
-                    Colors.pink.shade400,
-                    Colors.orange.shade400,
+                    const Color(0xFF8A1FFF),
+                    const Color(0xFFC43AFF),
                   ],
                 ),
               ),
@@ -789,7 +803,7 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
                         const SizedBox(width: 4),
                         const Icon(
                           Icons.verified,
-                          color: Color(0xFF0095F6),
+                          color: Color(0xFF8A1FFF),
                           size: 14,
                         ),
                       ],
@@ -869,7 +883,9 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 7),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0095F6),
+                  gradient: LinearGradient(
+                    colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
+                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
@@ -941,14 +957,6 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
 
   Widget _buildAvatarFallback(String userName, double size) {
     final letter = userName.isNotEmpty ? userName[0].toUpperCase() : '?';
-    final colors = [
-      [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
-      [const Color(0xFFEC4899), const Color(0xFFF97316)],
-      [const Color(0xFF10B981), const Color(0xFF06B6D4)],
-      [const Color(0xFFF59E0B), const Color(0xFFEF4444)],
-      [const Color(0xFF3B82F6), const Color(0xFF8B5CF6)],
-    ];
-    final colorPair = colors[letter.hashCode % colors.length];
 
     return Container(
       width: size,
@@ -958,7 +966,7 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: colorPair,
+          colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
         ),
       ),
       child: Center(

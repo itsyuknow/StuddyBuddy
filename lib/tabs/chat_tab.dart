@@ -12,7 +12,10 @@ class ChatTab extends StatefulWidget {
 
 class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   List<Map<String, dynamic>> _conversations = [];
+  List<Map<String, dynamic>> _filteredConversations = [];
   bool _isLoading = true;
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   bool get wantKeepAlive => true;
@@ -21,6 +24,13 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   void initState() {
     super.initState();
     _loadConversations();
+    _searchController.addListener(_filterConversations);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadConversations() async {
@@ -30,6 +40,7 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
       final conversations = await ChatService.getConversations();
       setState(() {
         _conversations = conversations;
+        _filteredConversations = conversations;
         _isLoading = false;
       });
     } catch (e) {
@@ -38,24 +49,65 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     }
   }
 
+  void _filterConversations() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredConversations = _conversations;
+      } else {
+        _filteredConversations = _conversations.where((conversation) {
+          final otherUser = conversation['other_user'];
+          final userName = (otherUser['full_name'] ?? '').toLowerCase();
+          final lastMessage = (conversation['last_message'] ?? '').toLowerCase();
+          return userName.contains(query) || lastMessage.contains(query);
+        }).toList();
+      }
+    });
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        _searchController.clear();
+        _filteredConversations = _conversations;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: _isLoading
-                  ? _buildLoadingState()
-                  : _conversations.isEmpty
-                  ? _buildEmptyState()
-                  : _buildConversationsList(),
-            ),
-          ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFF8A1FFF),
+              Color(0xFF9D3FFF),
+              Color(0xFFB15FFF),
+              Color(0xFFC43AFF),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            stops: [0.0, 0.3, 0.7, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              if (_isSearching) _buildSearchBar(),
+              Expanded(
+                child: _isLoading
+                    ? _buildLoadingState()
+                    : _filteredConversations.isEmpty
+                    ? _buildEmptyState()
+                    : _buildConversationsList(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -63,36 +115,124 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
-        ),
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
       child: Row(
         children: [
           const Text(
             'Messages',
             style: TextStyle(
-              fontSize: 28,
+              fontSize: 32,
               fontWeight: FontWeight.bold,
               letterSpacing: -0.5,
+              color: Colors.white,
             ),
           ),
           const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 26),
-            onPressed: () {
-              // TODO: Navigate to new message screen
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('New message feature coming soon!'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            },
+          // Search Button
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(_isSearching ? 0.3 : 0.15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: IconButton(
+              icon: Icon(
+                _isSearching ? Icons.close : Icons.search,
+                size: 24,
+                color: Colors.white,
+              ),
+              onPressed: _toggleSearch,
+            ),
           ),
+          // New Message Button
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 24, color: Colors.white),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('New message feature coming soon!'),
+                    duration: const Duration(seconds: 1),
+                    backgroundColor: Colors.black.withOpacity(0.8),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.search, color: Colors.white.withOpacity(0.7), size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              autofocus: true,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Search conversations...',
+                hintStyle: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 16,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          if (_searchController.text.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                _searchController.clear();
+              },
+              child: Icon(
+                Icons.clear,
+                color: Colors.white.withOpacity(0.7),
+                size: 20,
+              ),
+            ),
         ],
       ),
     );
@@ -104,26 +244,32 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 50,
-            height: 50,
-            padding: const EdgeInsets.all(12),
+            width: 70,
+            height: 70,
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [Colors.blue.shade400, Colors.purple.shade400],
-              ),
+              color: Colors.white.withOpacity(0.2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
             child: const CircularProgressIndicator(
               color: Colors.white,
-              strokeWidth: 3,
+              strokeWidth: 3.5,
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
+          const SizedBox(height: 24),
+          const Text(
             'Loading chats...',
             style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade600,
+              fontSize: 17,
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -132,39 +278,51 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   }
 
   Widget _buildEmptyState() {
+    final isSearchEmpty = _searchController.text.isNotEmpty;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 100,
-            height: 100,
+            width: 140,
+            height: 140,
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: Colors.white.withOpacity(0.15),
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
             child: Icon(
-              Icons.chat_bubble_outline,
-              size: 48,
-              color: Colors.grey.shade400,
+              isSearchEmpty ? Icons.search_off : Icons.chat_bubble_outline,
+              size: 70,
+              color: Colors.white,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 28),
           Text(
-            'No messages yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade800,
+            isSearchEmpty ? 'No results found' : 'No messages yet',
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 14),
           Text(
-            'Start chatting with your study buddies',
+            isSearchEmpty
+                ? 'Try searching with different keywords'
+                : 'Start chatting with your study buddies',
             style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade500,
+              fontSize: 17,
+              color: Colors.white.withOpacity(0.85),
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -174,11 +332,14 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   Widget _buildConversationsList() {
     return RefreshIndicator(
       onRefresh: _loadConversations,
-      color: Colors.black,
-      child: ListView.builder(
-        itemCount: _conversations.length,
+      color: Colors.white,
+      backgroundColor: const Color(0xFF8A1FFF),
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 20),
+        itemCount: _filteredConversations.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
-          final conversation = _conversations[index];
+          final conversation = _filteredConversations[index];
           return _buildConversationTile(conversation);
         },
       ),
@@ -196,102 +357,142 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
       timeAgo = timeago.format(dateTime, locale: 'en_short');
     }
 
-    return InkWell(
-      onTap: () async {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ChatScreen(
-              conversationId: conversation['id'],
-              otherUser: otherUser,
-            ),
-          ),
-        );
-        _loadConversations(); // Refresh after returning
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: Colors.grey.shade100, width: 0.5),
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withOpacity(0.18),
+            Colors.white.withOpacity(0.12),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: Row(
-          children: [
-            // Avatar
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                  colors: [
-                    Colors.purple.shade400,
-                    Colors.pink.shade400,
-                    Colors.orange.shade400,
-                  ],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.25),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          splashColor: Colors.white.withOpacity(0.1),
+          highlightColor: Colors.white.withOpacity(0.05),
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ChatScreen(
+                  conversationId: conversation['id'],
+                  otherUser: otherUser,
                 ),
               ),
-              padding: const EdgeInsets.all(2),
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                padding: const EdgeInsets.all(2),
-                child: _buildAvatar(
-                  otherUser['avatar_url'],
-                  otherUser['full_name'] ?? 'U',
-                  52,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-
-            // Message info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          otherUser['full_name'] ?? 'User',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+            );
+            _loadConversations();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Avatar with gradient border
+                Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Colors.white, Colors.white70],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
                       ),
-                      if (timeAgo.isNotEmpty)
-                        Text(
-                          timeAgo,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    lastMessage ?? 'Start a conversation',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    child: _buildAvatar(
+                      otherUser['avatar_url'],
+                      otherUser['full_name'] ?? 'U',
+                      60,
+                    ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 16),
+
+                // Message info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              otherUser['full_name'] ?? 'User',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: -0.3,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (timeAgo.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                timeAgo,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        lastMessage ?? 'Start a conversation',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.white.withOpacity(0.9),
+                          height: 1.3,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -318,19 +519,22 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [Colors.blue.shade400, Colors.purple.shade400],
+          colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
       ),
       child: Center(
         child: Text(
           userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
           style: TextStyle(
-            fontSize: size * 0.4,
-            fontWeight: FontWeight.w600,
+            fontSize: size * 0.38,
+            fontWeight: FontWeight.bold,
             color: Colors.white,
+            letterSpacing: 0.5,
           ),
         ),
       ),

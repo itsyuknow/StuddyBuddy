@@ -24,6 +24,8 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
   bool _hasAcceptedChallenge = false;
   int _acceptancesCount = 0;
   bool _isAuthenticated = false;
+  bool _hasAccess = false;
+  String? _userExamId;
   final _commentController = TextEditingController();
   final _replyController = TextEditingController();
   bool _isSubmittingComment = false;
@@ -63,10 +65,32 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
     });
 
     if (_isAuthenticated) {
+      await _loadUserExam();
       await _loadPostDetails();
       _animationController.forward();
     } else {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadUserExam() async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final response = await _supabase
+          .from('user_profiles')
+          .select('exam_id')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (response != null) {
+        setState(() {
+          _userExamId = response['exam_id'];
+        });
+      }
+    } catch (e) {
+      print('Error loading user exam: $e');
     }
   }
 
@@ -82,17 +106,33 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
     setState(() => _isLoading = true);
 
     try {
-      final posts = await PostService.getPosts();
-      final post = posts.firstWhere(
-            (p) => p['id'] == widget.postId,
-        orElse: () => {},
-      );
+      final post = await PostService.getPostById(widget.postId);
 
-      if (post.isEmpty) {
-        setState(() => _isLoading = false);
+      if (post == null) {
+        setState(() {
+          _isLoading = false;
+          _hasAccess = false;
+        });
         return;
       }
 
+      // Check if post creator has same exam as current user
+      final postUserId = post['user_id'];
+      final userProfile = await _supabase
+          .from('user_profiles')
+          .select('exam_id')
+          .eq('id', postUserId)
+          .maybeSingle();
+
+      if (userProfile == null || userProfile['exam_id'] != _userExamId) {
+        setState(() {
+          _isLoading = false;
+          _hasAccess = false;
+        });
+        return;
+      }
+
+      // User has access, load everything
       final comments = await PostService.getComments(widget.postId);
       final hasLiked = await PostService.hasUserLiked(widget.postId);
       final hasAccepted = await PostService.hasUserAcceptedChallenge(widget.postId);
@@ -118,11 +158,15 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
         _isLiked = hasLiked;
         _hasAcceptedChallenge = hasAccepted;
         _acceptancesCount = acceptancesCount;
+        _hasAccess = true;
         _isLoading = false;
       });
     } catch (e) {
       print('Error loading post: $e');
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _hasAccess = false;
+      });
     }
   }
 
@@ -265,7 +309,15 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
@@ -310,7 +362,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
               height: 60,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.blue.shade400, Colors.purple.shade400],
+                  colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
                 ),
                 shape: BoxShape.circle,
               ),
@@ -335,19 +387,31 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
       );
     }
 
-    if (_post == null) {
+    if (!_hasAccess || _post == null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.post_add_outlined, size: 64, color: Colors.grey.shade400),
+            Icon(Icons.lock_outline, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
-              'Post not found',
+              'Post not available',
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
                 color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                'This post is from a different exam group',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
           ],
@@ -383,81 +447,87 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
 
   Widget _buildLoginPrompt() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.blue.shade400, Colors.purple.shade400],
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.white.withOpacity(0.3),
+                      blurRadius: 30,
+                      spreadRadius: 5,
+                    ),
+                  ],
                 ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blue.withOpacity(0.3),
-                    blurRadius: 30,
-                    spreadRadius: 5,
-                  ),
-                ],
+                child: const Icon(Icons.lock_outline, size: 50, color: Colors.white),
               ),
-              child: const Icon(Icons.lock_outline, size: 50, color: Colors.white),
-            ),
-            const SizedBox(height: 32),
-            const Text(
-              'Sign In Required',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Please log in to view post details',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.blue.shade400, Colors.purple.shade400],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blue.withOpacity(0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: ElevatedButton.icon(
-                onPressed: () => Navigator.pushNamed(context, '/login'),
-                icon: const Icon(Icons.login, color: Colors.white),
-                label: const Text(
-                  'Sign In',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+              const SizedBox(height: 32),
+              const Text(
+                'Sign In Required',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.5,
+                  color: Colors.white,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                'Please log in to view post details',
+                style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.9)),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.white.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pushNamed(context, '/login'),
+                  icon: const Icon(Icons.login, color: Colors.white),
+                  label: const Text(
+                    'Sign In',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -469,7 +539,6 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
     final isChallenge = _post!['challenge_type'] != null;
     final avatarUrl = _post!['avatar_url'] as String?;
     final userName = _post!['user_name'] ?? 'U';
-
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -578,7 +647,6 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
           const SizedBox(height: 20),
           if (_post!['image_url'] != null)
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
               child: Image.network(
                 _post!['image_url'],
                 width: double.infinity,
@@ -691,9 +759,6 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
   }
 
   Widget _buildAvatar(String? avatarUrl, String userName, {double size = 40}) {
-    // Debug print to see what we're getting
-    print('Avatar URL: $avatarUrl for user: $userName, size: $size');
-
     if (avatarUrl != null && avatarUrl.isNotEmpty && avatarUrl != 'null') {
       return ClipRRect(
         borderRadius: BorderRadius.circular(size * 0.3),
@@ -703,7 +768,6 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
           height: size,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
-            print('Error loading avatar: $error');
             return _buildAvatarFallback(userName, size);
           },
         ),
@@ -718,12 +782,12 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
       height: size,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.blue.shade400, Colors.purple.shade400],
+          colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
         ),
         borderRadius: BorderRadius.circular(size * 0.3),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
+            color: const Color(0xFF8A1FFF).withOpacity(0.3),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -731,7 +795,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
       ),
       child: Center(
         child: Text(
-          userName[0].toUpperCase(),
+          userName.isNotEmpty ? userName[0].toUpperCase() : '?',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -799,7 +863,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.blue.shade100, Colors.purple.shade100],
+                    colors: [const Color(0xFF8A1FFF).withOpacity(0.1), const Color(0xFFC43AFF).withOpacity(0.1)],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -966,14 +1030,14 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.blue.shade600,
+                                    color: const Color(0xFF8A1FFF),
                                   ),
                                 ),
                                 const SizedBox(width: 4),
                                 Icon(
                                   isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                                   size: 16,
-                                  color: Colors.blue.shade600,
+                                  color: const Color(0xFF8A1FFF),
                                 ),
                               ],
                             ),
@@ -993,7 +1057,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.blue.shade200),
+                border: Border.all(color: const Color(0xFF8A1FFF).withOpacity(0.5)),
               ),
               child: Row(
                 children: [
@@ -1020,7 +1084,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
                       height: 32,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Colors.blue.shade400, Colors.purple.shade400],
+                          colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
                         ),
                         shape: BoxShape.circle,
                       ),
@@ -1154,12 +1218,12 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
               height: 52,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.blue.shade400, Colors.purple.shade400],
+                  colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
                 ),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.blue.withOpacity(0.3),
+                    color: const Color(0xFF8A1FFF).withOpacity(0.3),
                     blurRadius: 15,
                     offset: const Offset(0, 5),
                   ),

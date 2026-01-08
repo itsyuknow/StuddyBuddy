@@ -199,7 +199,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         onSave(tempTags);
                         Navigator.pop(context);
                       },
-                      child: const Text('Done'),
+                      child: const Text(
+                        'Done',
+                        style: TextStyle(
+                          color: Color(0xFF8A1FFF),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -216,6 +222,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           hintText: 'Add new tag',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF8A1FFF), width: 2),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
@@ -235,7 +245,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         }
                       },
                       icon: const Icon(Icons.add_circle),
-                      color: Colors.blue,
+                      color: const Color(0xFF8A1FFF),
                       iconSize: 32,
                     ),
                   ],
@@ -251,10 +261,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     children: tempTags.map((tag) {
                       return Chip(
                         label: Text(tag),
+                        backgroundColor: const Color(0xFF8A1FFF).withOpacity(0.1),
+                        labelStyle: const TextStyle(
+                          color: Color(0xFF8A1FFF),
+                          fontWeight: FontWeight.w600,
+                        ),
                         onDeleted: () {
                           setModalState(() => tempTags.remove(tag));
                         },
-                        deleteIcon: const Icon(Icons.close, size: 18),
+                        deleteIcon: const Icon(Icons.close, size: 18, color: Color(0xFF8A1FFF)),
                       );
                     }).toList(),
                   ),
@@ -271,7 +286,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: Center(child: CircularProgressIndicator(color: Color(0xFF8A1FFF))),
       );
     }
 
@@ -281,7 +296,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.black),
+          icon: const Icon(Icons.close, color: Color(0xFF8A1FFF)),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
@@ -299,7 +314,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: _isSaving ? Colors.grey : Colors.blue,
+                color: _isSaving ? Colors.grey : const Color(0xFF8A1FFF),
               ),
             ),
           ),
@@ -371,7 +386,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 'Interests',
                 _interests,
                 Icons.favorite,
-                Colors.purple,
+                const Color(0xFF8A1FFF),
                     () => _showTagEditor('Interests', _interests, (tags) {
                   setState(() => _interests = tags);
                 }),
@@ -420,6 +435,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         prefixText: prefix,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF8A1FFF), width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,

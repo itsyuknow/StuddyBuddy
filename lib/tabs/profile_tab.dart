@@ -2,7 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../screens/challenge_details_screen.dart';
 import '../screens/edit_study_profile_dialog.dart';
+import '../services/challenge_service.dart';
 import '../services/user_session.dart';
 import '../services/post_service.dart';
 import '../screens/exam_selection_screen.dart';
@@ -95,18 +97,25 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return;
 
+      // Load normal posts from PostService
       final allPosts = await PostService.getPosts();
-      final userPosts = allPosts.where((post) => post['user_id'] == userId).toList();
+      final normalPosts = allPosts
+          .where((post) => post['user_id'] == userId && post['challenge_type'] == null)
+          .toList();
 
-      final normalPosts = userPosts.where((post) => post['challenge_type'] == null).toList();
-      final challenges = userPosts.where((post) => post['challenge_type'] != null).toList();
+      // Load challenges from ChallengeService
+      final allChallenges = await ChallengeService.getChallenges();
+      final userChallenges = allChallenges
+          .where((challenge) => challenge['user_id'] == userId)
+          .toList();
 
       setState(() {
         _userPosts = normalPosts;
-        _userChallenges = challenges;
+        _userChallenges = userChallenges;
         _isLoadingPosts = false;
       });
     } catch (e) {
+      print('Error loading user posts and challenges: $e');
       setState(() => _isLoadingPosts = false);
     }
   }
@@ -309,18 +318,6 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
         ],
       ),
       actions: [
-        IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.3)),
-            ),
-            child: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
-          ),
-          onPressed: () {},
-        ),
         IconButton(
           icon: Container(
             padding: const EdgeInsets.all(8),
@@ -570,27 +567,14 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
           const SizedBox(height: 20),
 
           // Buttons
-          Row(
-            children: [
-              Expanded(
-                child: _buildGlassButton(
-                  'Edit Profile',
-                  Icons.edit_rounded,
-                      () async {
-                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen()));
-                    _loadUserData();
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildGlassButton(
-                  'Share',
-                  Icons.share_rounded,
-                      () {},
-                ),
-              ),
-            ],
+          // Buttons
+          _buildGlassButton(
+            'Edit Profile',
+            Icons.edit_rounded,
+                () async {
+              await Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen()));
+              _loadUserData();
+            },
           ),
         ],
       ),
@@ -1314,14 +1298,27 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildModernPostGridItem(Map<String, dynamic> post) {
-    final isChallenge = post['challenge_type'] != null;
+    final isChallenge = _showingPosts ? false : true; // If showing challenges tab, it's a challenge
 
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => PostDetailsScreen(postId: post['id'])),
-        ).then((_) => _loadUserPosts());
+        if (isChallenge) {
+          // Navigate to ChallengeDetailsScreen for challenges
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChallengeDetailsScreen(challengeId: post['id']),
+            ),
+          ).then((_) => _loadUserPosts());
+        } else {
+          // Navigate to PostDetailsScreen for normal posts
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PostDetailsScreen(postId: post['id']),
+            ),
+          ).then((_) => _loadUserPosts());
+        }
       },
       child: Container(
         decoration: BoxDecoration(
@@ -1453,23 +1450,6 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
                 ),
               ),
               const SizedBox(height: 24),
-              _buildMenuOption(Icons.settings_rounded, 'Settings and privacy', () => Navigator.pop(context)),
-              _buildMenuOption(Icons.schedule_rounded, 'Your activity', () => Navigator.pop(context)),
-              _buildMenuOption(Icons.bookmark_rounded, 'Saved', () => Navigator.pop(context)),
-              _buildMenuOption(Icons.qr_code_2_rounded, 'QR code', () => Navigator.pop(context)),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                height: 1,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      Colors.grey.shade300,
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
               _buildMenuOption(
                 Icons.logout_rounded,
                 'Log out',

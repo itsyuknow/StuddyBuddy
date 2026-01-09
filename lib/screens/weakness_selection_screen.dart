@@ -53,7 +53,8 @@ class _WeaknessSelectionScreenState extends State<WeaknessSelectionScreen> {
                             width: 1,
                           ),
                         ),
-                        child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                        child: const Icon(Icons.arrow_back,
+                            color: Colors.white, size: 20),
                       ),
                       onPressed: () => Navigator.pop(context),
                     ),
@@ -72,79 +73,31 @@ class _WeaknessSelectionScreenState extends State<WeaknessSelectionScreen> {
                         const Text(
                           'Areas for Improvement',
                           style: TextStyle(
-                            fontSize: 36,
+                            fontSize: 32,
                             fontWeight: FontWeight.bold,
                             height: 1.2,
                             color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         const Text(
-                          'Select subjects where you need support.\nWe\'ll match you with partners strong in these areas.',
+                          'Select subjects where you need support.',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 15,
                             color: Colors.white,
-                            height: 1.5,
+                            height: 1.4,
                           ),
                         ),
-                        const SizedBox(height: 40),
-                        Column(
-                          children: weaknesses.map<Widget>((weakness) {
-                            bool isSelected = selectedWeaknesses.contains(weakness);
-                            return GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  if (isSelected) {
-                                    selectedWeaknesses.remove(weakness);
-                                  } else {
-                                    selectedWeaknesses.add(weakness);
-                                  }
-                                });
-                              },
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? Colors.white
-                                      : Colors.white.withOpacity(0.1),
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isSelected
-                                          ? Icons.check_circle
-                                          : Icons.circle_outlined,
-                                      color: isSelected
-                                          ? const Color(0xFF8A1FFF)
-                                          : Colors.white,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Text(
-                                        weakness,
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: isSelected
-                                              ? const Color(0xFF8A1FFF)
-                                              : Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 48),
+                        const SizedBox(height: 32),
+                        ...weaknesses.map<Widget>((weaknessData) {
+                          String subject = weaknessData['subject'] ?? '';
+                          List<dynamic> subtopics =
+                              weaknessData['subtopics'] ?? [];
+
+                          return _buildSubjectSection(
+                              subject, subtopics.cast<String>());
+                        }).toList(),
+                        const SizedBox(height: 32),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
@@ -154,7 +107,7 @@ class _WeaknessSelectionScreenState extends State<WeaknessSelectionScreen> {
                               await _handleSearchBuddy(context);
                             },
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                               backgroundColor: selectedWeaknesses.isEmpty
                                   ? Colors.white.withOpacity(0.3)
                                   : Colors.white,
@@ -176,7 +129,7 @@ class _WeaknessSelectionScreenState extends State<WeaknessSelectionScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 24),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: List.generate(
@@ -202,6 +155,87 @@ class _WeaknessSelectionScreenState extends State<WeaknessSelectionScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSubjectSection(String subject, List<String> subtopics) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Subject Header
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10, top: 4),
+          child: Text(
+            subject,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        // Subtopics in a compact wrap layout
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: subtopics.map((subtopic) {
+            bool isSelected = selectedWeaknesses.contains(subtopic);
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (isSelected) {
+                    selectedWeaknesses.remove(subtopic);
+                  } else {
+                    selectedWeaknesses.add(subtopic);
+                  }
+                });
+              },
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width - 48,
+                ),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.15),
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 1.5,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isSelected ? Icons.check_circle : Icons.circle_outlined,
+                      color:
+                      isSelected ? const Color(0xFF8A1FFF) : Colors.white,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        subtopic,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color:
+                          isSelected ? const Color(0xFF8A1FFF) : Colors.white,
+                        ),
+                        overflow: TextOverflow.visible,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 20),
+      ],
     );
   }
 

@@ -60,7 +60,7 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
                       ),
                       child: const Center(
                         child: Text(
-                          'SB',
+                          'Ed',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -71,7 +71,7 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
                     ),
                     const SizedBox(width: 12),
                     const Text(
-                      'StuddyBudyy',
+                      'Edormy',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,

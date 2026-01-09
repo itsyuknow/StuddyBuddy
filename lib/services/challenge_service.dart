@@ -80,13 +80,9 @@ class ChallengeService {
   // Get all active challenges
   static Future<List<Map<String, dynamic>>> getChallenges({String? examId, String? difficulty}) async {
     try {
-      var query = _supabase.from('challenges').select('''
-            *,
-            user_profiles (
-              full_name,
-              avatar_url
-            )
-          ''').eq('status', 'active');
+      print('ChallengeService.getChallenges called with examId: $examId, difficulty: $difficulty');
+
+      var query = _supabase.from('challenges').select('*').eq('status', 'active');
 
       if (examId != null) {
         query = query.eq('exam_id', examId);
@@ -97,9 +93,25 @@ class ChallengeService {
 
       final response = await query.order('created_at', ascending: false);
 
-      return (response as List).map((challenge) {
-        final userProfile = challenge['user_profiles'];
-        return {
+      print('Raw response count: ${(response as List).length}');
+
+      // Fetch user profiles separately for each challenge
+      final challenges = <Map<String, dynamic>>[];
+
+      for (var challenge in (response as List)) {
+        // Get user profile separately
+        Map<String, dynamic>? userProfile;
+        try {
+          userProfile = await _supabase
+              .from('user_profiles')
+              .select('full_name, avatar_url')
+              .eq('id', challenge['user_id'])
+              .maybeSingle();
+        } catch (e) {
+          print('Error fetching user profile for ${challenge['user_id']}: $e');
+        }
+
+        challenges.add({
           'id': challenge['id'],
           'user_id': challenge['user_id'],
           'user_name': userProfile?['full_name'] ?? challenge['user_name'] ?? 'Anonymous',
@@ -118,10 +130,14 @@ class ChallengeService {
           'status': challenge['status'],
           'created_at': challenge['created_at'],
           'expires_at': challenge['expires_at'],
-        };
-      }).toList();
-    } catch (e) {
+        });
+      }
+
+      print('Transformed challenges count: ${challenges.length}');
+      return challenges;
+    } catch (e, stackTrace) {
       print('Error fetching challenges: $e');
+      print('Stack trace: $stackTrace');
       return [];
     }
   }
@@ -129,22 +145,34 @@ class ChallengeService {
   // Get challenge by ID
   static Future<Map<String, dynamic>?> getChallengeById(String challengeId) async {
     try {
+      print('Fetching challenge with ID: $challengeId');
+
       final response = await _supabase
           .from('challenges')
-          .select('''
-            *,
-            user_profiles (
-              full_name,
-              avatar_url
-            )
-          ''')
+          .select('*')
           .eq('id', challengeId)
           .maybeSingle();
 
-      if (response == null) return null;
+      print('Raw response: $response');
 
-      final userProfile = response['user_profiles'];
-      return {
+      if (response == null) {
+        print('No challenge found with ID: $challengeId');
+        return null;
+      }
+
+      // Get user profile separately
+      Map<String, dynamic>? userProfile;
+      try {
+        userProfile = await _supabase
+            .from('user_profiles')
+            .select('full_name, avatar_url')
+            .eq('id', response['user_id'])
+            .maybeSingle();
+      } catch (e) {
+        print('Error fetching user profile: $e');
+      }
+
+      final result = {
         'id': response['id'],
         'user_id': response['user_id'],
         'user_name': userProfile?['full_name'] ?? response['user_name'] ?? 'Anonymous',
@@ -164,8 +192,12 @@ class ChallengeService {
         'created_at': response['created_at'],
         'expires_at': response['expires_at'],
       };
-    } catch (e) {
+
+      print('Transformed challenge: $result');
+      return result;
+    } catch (e, stackTrace) {
       print('Error fetching challenge: $e');
+      print('Stack trace: $stackTrace');
       return null;
     }
   }
@@ -233,19 +265,26 @@ class ChallengeService {
     try {
       final response = await _supabase
           .from('challenge_participants')
-          .select('''
-            *,
-            user_profiles (
-              full_name,
-              avatar_url
-            )
-          ''')
+          .select('*')
           .eq('challenge_id', challengeId)
           .order('progress', ascending: false);
 
-      return (response as List).map((participant) {
-        final userProfile = participant['user_profiles'];
-        return {
+      final participants = <Map<String, dynamic>>[];
+
+      for (var participant in (response as List)) {
+        // Get user profile separately
+        Map<String, dynamic>? userProfile;
+        try {
+          userProfile = await _supabase
+              .from('user_profiles')
+              .select('full_name, avatar_url')
+              .eq('id', participant['user_id'])
+              .maybeSingle();
+        } catch (e) {
+          print('Error fetching user profile: $e');
+        }
+
+        participants.add({
           'id': participant['id'],
           'user_id': participant['user_id'],
           'user_name': userProfile?['full_name'] ?? participant['user_name'] ?? 'Anonymous',
@@ -256,8 +295,10 @@ class ChallengeService {
           'proof_image_url': participant['proof_image_url'],
           'joined_at': participant['joined_at'],
           'completed_at': participant['completed_at'],
-        };
-      }).toList();
+        });
+      }
+
+      return participants;
     } catch (e) {
       print('Error getting participants: $e');
       return [];
@@ -365,19 +406,26 @@ class ChallengeService {
     try {
       final response = await _supabase
           .from('challenge_updates')
-          .select('''
-            *,
-            user_profiles (
-              full_name,
-              avatar_url
-            )
-          ''')
+          .select('*')
           .eq('challenge_id', challengeId)
           .order('created_at', ascending: false);
 
-      return (response as List).map((update) {
-        final userProfile = update['user_profiles'];
-        return {
+      final updates = <Map<String, dynamic>>[];
+
+      for (var update in (response as List)) {
+        // Get user profile separately
+        Map<String, dynamic>? userProfile;
+        try {
+          userProfile = await _supabase
+              .from('user_profiles')
+              .select('full_name, avatar_url')
+              .eq('id', update['user_id'])
+              .maybeSingle();
+        } catch (e) {
+          print('Error fetching user profile: $e');
+        }
+
+        updates.add({
           'id': update['id'],
           'user_id': update['user_id'],
           'user_name': userProfile?['full_name'] ?? update['user_name'] ?? 'Anonymous',
@@ -386,8 +434,10 @@ class ChallengeService {
           'progress': update['progress'],
           'image_url': update['image_url'],
           'created_at': update['created_at'],
-        };
-      }).toList();
+        });
+      }
+
+      return updates;
     } catch (e) {
       print('Error getting updates: $e');
       return [];
@@ -483,27 +533,36 @@ class ChallengeService {
     try {
       final response = await _supabase
           .from('challenge_comments')
-          .select('''
-            *,
-            user_profiles (
-              full_name,
-              avatar_url
-            )
-          ''')
+          .select('*')
           .eq('challenge_id', challengeId)
           .order('created_at', ascending: false);
 
-      return (response as List).map((comment) {
-        final userProfile = comment['user_profiles'];
-        return {
+      final comments = <Map<String, dynamic>>[];
+
+      for (var comment in (response as List)) {
+        // Get user profile separately
+        Map<String, dynamic>? userProfile;
+        try {
+          userProfile = await _supabase
+              .from('user_profiles')
+              .select('full_name, avatar_url')
+              .eq('id', comment['user_id'])
+              .maybeSingle();
+        } catch (e) {
+          print('Error fetching user profile: $e');
+        }
+
+        comments.add({
           'id': comment['id'],
           'user_id': comment['user_id'],
           'user_name': userProfile?['full_name'] ?? comment['user_name'] ?? 'Anonymous',
           'avatar_url': userProfile?['avatar_url'],
           'comment_text': comment['comment_text'],
           'created_at': comment['created_at'],
-        };
-      }).toList();
+        });
+      }
+
+      return comments;
     } catch (e) {
       print('Error getting comments: $e');
       return [];

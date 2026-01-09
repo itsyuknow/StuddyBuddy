@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/challenge_service.dart';
 import '../services/post_service.dart';
 import '../services/chat_service.dart';
 import '../screens/post_details_screen.dart';
 import '../screens/chat_screen.dart';
 import '../screens/followers_list_screen.dart';
+import 'challenge_details_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
@@ -79,19 +81,25 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Future<void> _loadUserPosts() async {
     setState(() => _isLoadingPosts = true);
     try {
+      // Load normal posts from PostService
       final allPosts = await PostService.getPosts();
-      final userPosts = allPosts.where((post) => post['user_id'] == widget.userId).toList();
+      final normalPosts = allPosts
+          .where((post) => post['user_id'] == widget.userId && post['challenge_type'] == null)
+          .toList();
 
-      // Separate normal posts and challenges
-      final normalPosts = userPosts.where((post) => post['challenge_type'] == null).toList();
-      final challenges = userPosts.where((post) => post['challenge_type'] != null).toList();
+      // Load challenges from ChallengeService
+      final allChallenges = await ChallengeService.getChallenges();
+      final userChallenges = allChallenges
+          .where((challenge) => challenge['user_id'] == widget.userId)
+          .toList();
 
       setState(() {
         _userPosts = normalPosts;
-        _userChallenges = challenges;
+        _userChallenges = userChallenges;
         _isLoadingPosts = false;
       });
     } catch (e) {
+      print('Error loading user posts and challenges: $e');
       setState(() => _isLoadingPosts = false);
     }
   }
@@ -281,12 +289,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
         ],
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.more_vert, color: Colors.white),
-          onPressed: _showOptionsMenu,
-        ),
-      ],
     );
   }
 
@@ -765,14 +767,27 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildPostGridItem(Map<String, dynamic> post) {
-    final isChallenge = post['challenge_type'] != null;
+    final isChallenge = _showingPosts ? false : true; // If showing challenges tab, it's a challenge
 
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => PostDetailsScreen(postId: post['id'])),
-        ).then((_) => _loadUserPosts());
+        if (isChallenge) {
+          // Navigate to ChallengeDetailsScreen for challenges
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChallengeDetailsScreen(challengeId: post['id']),
+            ),
+          ).then((_) => _loadUserPosts());
+        } else {
+          // Navigate to PostDetailsScreen for normal posts
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PostDetailsScreen(postId: post['id']),
+            ),
+          ).then((_) => _loadUserPosts());
+        }
       },
       child: Container(
         color: Colors.grey.shade200,

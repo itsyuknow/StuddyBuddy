@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/post_service.dart';
 import '../services/challenge_service.dart';
@@ -148,29 +149,15 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
     try {
       print('Loading challenges for exam ID: $_userExamId'); // Debug print
 
-      // First, let's get all challenges without filtering to see what's available
-      final allChallenges = await _supabase
-          .from('challenges')
-          .select('*')
-          .order('created_at', ascending: false);
+      // Use ChallengeService instead of direct Supabase query
+      final allChallenges = await ChallengeService.getChallenges();
 
-      print('Total challenges in database: ${allChallenges.length}'); // Debug print
+      print('Total challenges from service: ${allChallenges.length}'); // Debug print
 
-      // Now filter by user's exam
-      final filteredChallenges = <Map<String, dynamic>>[];
-
-      if (_userExamId != null) {
-        // Filter challenges that match user's exam
-        for (var challenge in allChallenges) {
-          print('Challenge exam ID: ${challenge['exam_id']}, User exam ID: $_userExamId'); // Debug
-          if (challenge['exam_id'] == _userExamId) {
-            filteredChallenges.add(challenge);
-          }
-        }
-      } else {
-        // If user has no exam selected, show all challenges
-        filteredChallenges.addAll(allChallenges);
-      }
+      // Filter by user's exam if they have one selected
+      final filteredChallenges = _userExamId != null
+          ? allChallenges.where((c) => c['exam_id'] == _userExamId).toList()
+          : allChallenges;
 
       print('Filtered challenges count: ${filteredChallenges.length}'); // Debug print
 

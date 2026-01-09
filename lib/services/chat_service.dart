@@ -53,11 +53,22 @@ class ChatService {
               .eq('id', otherUserId)
               .single();
 
+          // Get unread count for this conversation
+          final unreadResponse = await _supabase
+              .from('messages')
+              .select('id')
+              .eq('conversation_id', conv['id'])
+              .eq('receiver_id', currentUserId)
+              .eq('is_read', false);
+
+          final unreadCount = (unreadResponse as List).length;
+
           conversations.add({
             'id': conv['id'],
             'last_message': conv['last_message'],
             'last_message_time': conv['last_message_time'],
             'updated_at': conv['updated_at'],
+            'unread_count': unreadCount,
             'other_user': userData,
           });
         } catch (e) {

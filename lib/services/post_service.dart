@@ -87,90 +87,91 @@ class PostService {
     }
   }
 
-  // Get all posts (feed)
-  static Future<List<Map<String, dynamic>>> getPosts() async {
+  // Get all posts (feed) - OPTIMIZED VERSION
+  static Future<List<Map<String, dynamic>>> getPosts({String? examId, int? limit, int? offset}) async {
     try {
-      // Try with proper join syntax
-      try {
-        final response = await _supabase
-            .from('posts')
-            .select('''
-            *,
-            user_profiles (
-              full_name,
-              avatar_url
-            )
-          ''')
-            .order('created_at', ascending: false);
+      // Step 1: If examId is provided, get user IDs with that exam
+      List<String>? userIdsWithExam;
 
-        print('Posts response: $response');
+      if (examId != null) {
+        final usersResponse = await _supabase
+            .from('user_profiles')
+            .select('id')
+            .eq('exam_id', examId);
 
-        return (response as List).map((post) {
-          final userProfile = post['user_profiles'];
-          print('Post ID: ${post['id']}, User Profile: $userProfile');
+        userIdsWithExam = (usersResponse as List)
+            .map((user) => user['id'] as String)
+            .toList();
 
-          return {
-            'id': post['id'],
-            'user_id': post['user_id'],
-            'user_name': userProfile?['full_name'] ?? post['user_name'] ?? 'Anonymous',
-            'avatar_url': userProfile?['avatar_url'],
-            'title': post['title'],
-            'description': post['description'],
-            'challenge_type': post['challenge_type'],
-            'image_url': post['image_url'],
-            'likes_count': post['likes_count'] ?? 0,
-            'comments_count': post['comments_count'] ?? 0,
-            'created_at': post['created_at'],
-          };
-        }).toList();
-      } catch (joinError) {
-        print('Join query failed: $joinError');
+        print('Users with exam $examId: ${userIdsWithExam.length}');
 
-        // Fallback: Fetch posts and profiles separately
-        final postsResponse = await _supabase
-            .from('posts')
-            .select()
-            .order('created_at', ascending: false);
+        if (userIdsWithExam.isEmpty) {
+          return []; // No users with this exam
+        }
+      }
 
-        final posts = <Map<String, dynamic>>[];
+      // Step 2: Build query for posts (without join since there's no FK)
+      PostgrestFilterBuilder query = _supabase.from('posts').select('*');
 
-        for (var post in postsResponse as List) {
-          String userName = post['user_name'] ?? 'Anonymous';
-          String? avatarUrl;
+      // Filter by user IDs if we have them
+      if (userIdsWithExam != null && userIdsWithExam.isNotEmpty) {
+        query = query.inFilter('user_id', userIdsWithExam);
+      }
 
-          try {
-            final profileResponse = await _supabase
-                .from('user_profiles')
-                .select('full_name, avatar_url')
-                .eq('id', post['user_id'])
-                .maybeSingle();
+      // Apply ordering
+      PostgrestTransformBuilder transformQuery = query.order('created_at', ascending: false);
 
-            if (profileResponse != null) {
-              userName = profileResponse['full_name'] ?? userName;
-              avatarUrl = profileResponse['avatar_url'];
-            }
-            print('User ${post['user_id']}: $userName, Avatar: $avatarUrl');
-          } catch (e) {
-            print('Error fetching profile for ${post['user_id']}: $e');
+      // Add pagination
+      if (limit != null) {
+        if (offset != null && offset > 0) {
+          transformQuery = transformQuery.range(offset, offset + limit - 1);
+        } else {
+          transformQuery = transformQuery.limit(limit);
+        }
+      }
+
+      final postsResponse = await transformQuery;
+      print('Posts fetched: ${(postsResponse as List).length}');
+
+      // Step 3: Get user profiles for these posts
+      final posts = <Map<String, dynamic>>[];
+
+      for (var post in (postsResponse as List)) {
+        String userName = post['user_name'] ?? 'Anonymous';
+        String? avatarUrl;
+
+        // Get user profile
+        try {
+          final profileResponse = await _supabase
+              .from('user_profiles')
+              .select('full_name, avatar_url')
+              .eq('id', post['user_id'])
+              .maybeSingle();
+
+          if (profileResponse != null) {
+            userName = profileResponse['full_name'] ?? userName;
+            avatarUrl = profileResponse['avatar_url'];
           }
-
-          posts.add({
-            'id': post['id'],
-            'user_id': post['user_id'],
-            'user_name': userName,
-            'avatar_url': avatarUrl,
-            'title': post['title'],
-            'description': post['description'],
-            'challenge_type': post['challenge_type'],
-            'image_url': post['image_url'],
-            'likes_count': post['likes_count'] ?? 0,
-            'comments_count': post['comments_count'] ?? 0,
-            'created_at': post['created_at'],
-          });
+        } catch (e) {
+          print('Error fetching profile for ${post['user_id']}: $e');
         }
 
-        return posts;
+        posts.add({
+          'id': post['id'],
+          'user_id': post['user_id'],
+          'user_name': userName,
+          'avatar_url': avatarUrl,
+          'title': post['title'],
+          'description': post['description'],
+          'challenge_type': post['challenge_type'],
+          'image_url': post['image_url'],
+          'likes_count': post['likes_count'] ?? 0,
+          'comments_count': post['comments_count'] ?? 0,
+          'created_at': post['created_at'],
+        });
       }
+
+      return posts;
     } catch (e) {
       print('Error fetching posts: $e');
       return [];

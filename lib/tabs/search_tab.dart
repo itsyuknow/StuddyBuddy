@@ -22,7 +22,12 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
   bool _isSearching = false;
   bool _isLoading = true;
   bool _isSearchFocused = false;
-  String _selectedTab = 'buddy'; // 'buddy' or 'others'
+  String _selectedTab = 'buddy';// 'buddy' or 'others'
+
+
+  Map<String, bool> _followStatus = {}; // ADD THIS LINE
+
+
 
   @override
   bool get wantKeepAlive => true;
@@ -98,12 +103,21 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
       print('Found ${buddyList.length} buddy users (50%+ match)');
       print('Found ${othersList.length} other users');
 
+      // Check follow status for all users
+      for (var user in buddyList) {
+        _checkFollowStatus(user['id']);
+      }
+      for (var user in othersList) {
+        _checkFollowStatus(user['id']);
+      }
+
       setState(() {
         _buddyUsers = buddyList;
         _otherUsers = othersList;
         _isLoading = false;
       });
-    } catch (e) {
+
+    } catch (e) { // ADD THIS CATCH BLOCK
       print('Error loading suggested users: $e');
       setState(() => _isLoading = false);
     }
@@ -144,6 +158,55 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
     // Calculate final percentage
     if (maxPoints == 0) return 0;
     return ((totalPoints / maxPoints) * 100).round();
+  }
+
+  Future<void> _toggleFollow(String userId) async {
+    try {
+      final currentUserId = _supabase.auth.currentUser?.id;
+      if (currentUserId == null) return;
+
+      final isFollowing = _followStatus[userId] ?? false;
+
+      if (isFollowing) {
+        await _supabase
+            .from('follows')
+            .delete()
+            .eq('follower_id', currentUserId)
+            .eq('following_id', userId);
+      } else {
+        await _supabase.from('follows').insert({
+          'follower_id': currentUserId,
+          'following_id': userId,
+        });
+      }
+
+      setState(() {
+        _followStatus[userId] = !isFollowing;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
+  Future<void> _checkFollowStatus(String userId) async {
+    try {
+      final currentUserId = _supabase.auth.currentUser?.id;
+      if (currentUserId == null) return;
+
+      final response = await _supabase
+          .from('follows')
+          .select()
+          .eq('follower_id', currentUserId)
+          .eq('following_id', userId);
+
+      setState(() {
+        _followStatus[userId] = response.isNotEmpty;
+      });
+    } catch (e) {
+      print('Error checking follow status: $e');
+    }
   }
 
   Future<void> _searchUsers(String query) async {
@@ -218,13 +281,17 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
     }
 
     // Navigate to profile
+    // Navigate to profile
     if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => UserProfileScreen(userId: userId),
       ),
-    );
+    ).then((_) {
+      // Refresh follow status when returning
+      _checkFollowStatus(userId);
+    });
   }
 
   @override
@@ -878,22 +945,32 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
               ),
             ),
 
-            // Action button
+            // Action button - SIMPLIFIED VERSION
             if (showFollowButton)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 7),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
+              GestureDetector(
+                onTap: () => _toggleFollow(user['id']),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+                  decoration: BoxDecoration(
+                    gradient: (_followStatus[user['id']] ?? false)
+                        ? null
+                        : const LinearGradient(
+                      colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                    ),
+                    color: (_followStatus[user['id']] ?? false)
+                        ? Colors.grey.shade200
+                        : null,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'Follow',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                  child: Text(
+                    (_followStatus[user['id']] ?? false) ? 'Following' : 'Follow',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: (_followStatus[user['id']] ?? false)
+                          ? Colors.black
+                          : Colors.white,
+                    ),
                   ),
                 ),
               )

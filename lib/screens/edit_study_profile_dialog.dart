@@ -278,7 +278,12 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
             final isSelected = _selectedExam?['id'] == exam['id'];
             return GestureDetector(
               onTap: () {
-                setState(() => _selectedExam = exam);
+                setState(() {
+                  _selectedExam = exam;
+                  // Reset selections when exam changes
+                  _selectedStrengths.clear();
+                  _selectedWeaknesses.clear();
+                });
               },
               child: Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -372,26 +377,16 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
             ),
           ),
           const SizedBox(height: 32),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: strengths.map<Widget>((strength) {
-              final isSelected = _selectedStrengths.contains(strength);
-              return _buildSelectionChip(
-                strength,
-                isSelected,
-                    () {
-                  setState(() {
-                    if (isSelected) {
-                      _selectedStrengths.remove(strength);
-                    } else {
-                      _selectedStrengths.add(strength);
-                    }
-                  });
-                },
-              );
-            }).toList(),
-          ),
+          ...strengths.map<Widget>((strengthData) {
+            String subject = strengthData['subject'] ?? '';
+            List<dynamic> subtopics = strengthData['subtopics'] ?? [];
+
+            return _buildSubjectSection(
+              subject,
+              subtopics.cast<String>(),
+              _selectedStrengths,
+            );
+          }).toList(),
         ],
       ),
     );
@@ -423,70 +418,100 @@ class _EditStudyProfileDialogState extends State<EditStudyProfileDialog> {
             ),
           ),
           const SizedBox(height: 32),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: weaknesses.map<Widget>((weakness) {
-              final isSelected = _selectedWeaknesses.contains(weakness);
-              return _buildSelectionChip(
-                weakness,
-                isSelected,
-                    () {
-                  setState(() {
-                    if (isSelected) {
-                      _selectedWeaknesses.remove(weakness);
-                    } else {
-                      _selectedWeaknesses.add(weakness);
-                    }
-                  });
-                },
-              );
-            }).toList(),
-          ),
+          ...weaknesses.map<Widget>((weaknessData) {
+            String subject = weaknessData['subject'] ?? '';
+            List<dynamic> subtopics = weaknessData['subtopics'] ?? [];
+
+            return _buildSubjectSection(
+              subject,
+              subtopics.cast<String>(),
+              _selectedWeaknesses,
+            );
+          }).toList(),
         ],
       ),
     );
   }
 
-  Widget _buildSelectionChip(String label, bool isSelected, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        decoration: BoxDecoration(
-          gradient: isSelected
-              ? const LinearGradient(
-            colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
-          )
-              : null,
-          color: isSelected ? null : Colors.white,
-          border: Border.all(color: const Color(0xFF8A1FFF), width: 2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected ? Icons.check_circle : Icons.circle_outlined,
-              color: isSelected ? Colors.white : const Color(0xFF8A1FFF),
-              size: 20,
+  Widget _buildSubjectSection(
+      String subject,
+      List<String> subtopics,
+      List<String> selectedList,
+      ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Subject Header
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12, top: 8),
+          child: Text(
+            subject,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF8A1FFF),
             ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : Colors.black,
+          ),
+        ),
+        // Subtopics
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: subtopics.map((subtopic) {
+            final isSelected = selectedList.contains(subtopic);
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (isSelected) {
+                    selectedList.remove(subtopic);
+                  } else {
+                    selectedList.add(subtopic);
+                  }
+                });
+              },
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width - 48,
                 ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: isSelected
+                      ? const LinearGradient(
+                    colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                  )
+                      : null,
+                  color: isSelected ? null : Colors.white,
+                  border: Border.all(color: const Color(0xFF8A1FFF), width: 2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isSelected ? Icons.check_circle : Icons.circle_outlined,
+                      color: isSelected ? Colors.white : const Color(0xFF8A1FFF),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        subtopic,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected ? Colors.white : Colors.black,
+                        ),
+                        overflow: TextOverflow.visible,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            );
+          }).toList(),
         ),
-      ),
+        const SizedBox(height: 20),
+      ],
     );
   }
 

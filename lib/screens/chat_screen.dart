@@ -379,8 +379,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMessageBubble(Map<String, dynamic> message, bool isMe) {
-    final timestamp = DateTime.parse(message['created_at']);
-    final timeString = DateFormat('HH:mm').format(timestamp);
+    final timestamp = DateTime.parse(message['created_at']).toLocal();
+    final timeString = DateFormat('h:mm a').format(timestamp);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),

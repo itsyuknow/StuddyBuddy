@@ -46,7 +46,8 @@ class _StrengthSelectionScreenState extends State<StrengthSelectionScreen> {
                             width: 1,
                           ),
                         ),
-                        child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                        child: const Icon(Icons.arrow_back,
+                            color: Colors.white, size: 20),
                       ),
                       onPressed: () => Navigator.pop(context),
                     ),
@@ -65,79 +66,31 @@ class _StrengthSelectionScreenState extends State<StrengthSelectionScreen> {
                         const Text(
                           'Your Strengths',
                           style: TextStyle(
-                            fontSize: 36,
+                            fontSize: 32,
                             fontWeight: FontWeight.bold,
                             height: 1.2,
                             color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         Text(
-                          'Select subjects you\'re confident in for ${widget.examData['short_name']}.\nYou can help others in these areas.',
+                          'Select subjects you\'re confident in for ${widget.examData['short_name']}.',
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 15,
                             color: Colors.white,
-                            height: 1.5,
+                            height: 1.4,
                           ),
                         ),
-                        const SizedBox(height: 40),
-                        Column(
-                          children: strengths.map<Widget>((strength) {
-                            bool isSelected = selectedStrengths.contains(strength);
-                            return GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  if (isSelected) {
-                                    selectedStrengths.remove(strength);
-                                  } else {
-                                    selectedStrengths.add(strength);
-                                  }
-                                });
-                              },
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? Colors.white
-                                      : Colors.white.withOpacity(0.1),
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isSelected
-                                          ? Icons.check_circle
-                                          : Icons.circle_outlined,
-                                      color: isSelected
-                                          ? const Color(0xFF8A1FFF)
-                                          : Colors.white,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Text(
-                                        strength,
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: isSelected
-                                              ? const Color(0xFF8A1FFF)
-                                              : Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 48),
+                        const SizedBox(height: 32),
+                        ...strengths.map<Widget>((strengthData) {
+                          String subject = strengthData['subject'] ?? '';
+                          List<dynamic> subtopics =
+                              strengthData['subtopics'] ?? [];
+
+                          return _buildSubjectSection(
+                              subject, subtopics.cast<String>());
+                        }).toList(),
+                        const SizedBox(height: 32),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
@@ -155,7 +108,7 @@ class _StrengthSelectionScreenState extends State<StrengthSelectionScreen> {
                               );
                             },
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                               backgroundColor: selectedStrengths.isEmpty
                                   ? Colors.white.withOpacity(0.3)
                                   : Colors.white,
@@ -177,7 +130,7 @@ class _StrengthSelectionScreenState extends State<StrengthSelectionScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 24),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: List.generate(
@@ -203,6 +156,87 @@ class _StrengthSelectionScreenState extends State<StrengthSelectionScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSubjectSection(String subject, List<String> subtopics) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Subject Header
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10, top: 4),
+          child: Text(
+            subject,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        // Subtopics in a compact wrap layout
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: subtopics.map((subtopic) {
+            bool isSelected = selectedStrengths.contains(subtopic);
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (isSelected) {
+                    selectedStrengths.remove(subtopic);
+                  } else {
+                    selectedStrengths.add(subtopic);
+                  }
+                });
+              },
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width - 48,
+                ),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.15),
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 1.5,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isSelected ? Icons.check_circle : Icons.circle_outlined,
+                      color:
+                      isSelected ? const Color(0xFF8A1FFF) : Colors.white,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        subtopic,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color:
+                          isSelected ? const Color(0xFF8A1FFF) : Colors.white,
+                        ),
+                        overflow: TextOverflow.visible,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 20),
+      ],
     );
   }
 }

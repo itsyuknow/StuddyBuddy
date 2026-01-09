@@ -130,7 +130,6 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
           const Spacer(),
           // Search Button
           Container(
-            margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(_isSearching ? 0.3 : 0.15),
               borderRadius: BorderRadius.circular(12),
@@ -146,33 +145,6 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                 color: Colors.white,
               ),
               onPressed: _toggleSearch,
-            ),
-          ),
-          // New Message Button
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 24, color: Colors.white),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('New message feature coming soon!'),
-                    duration: const Duration(seconds: 1),
-                    backgroundColor: Colors.black.withOpacity(0.8),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                );
-              },
             ),
           ),
         ],
@@ -455,25 +427,58 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (timeAgo.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                timeAgo,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (timeAgo.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    timeAgo,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
+                              if (conversation['unread_count'] != null && conversation['unread_count'] > 0) ...[
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.red.withOpacity(0.4),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    '${conversation['unread_count']}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),

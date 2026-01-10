@@ -529,6 +529,7 @@ class ChallengeService {
   }
 
   // Get comments
+  // Get comments
   static Future<List<Map<String, dynamic>>> getComments(String challengeId) async {
     try {
       final response = await _supabase
@@ -558,6 +559,7 @@ class ChallengeService {
           'user_name': userProfile?['full_name'] ?? comment['user_name'] ?? 'Anonymous',
           'avatar_url': userProfile?['avatar_url'],
           'comment_text': comment['comment_text'],
+          'likes_count': comment['likes_count'] ?? 0,  // ADD THIS LINE
           'created_at': comment['created_at'],
         });
       }
@@ -570,6 +572,7 @@ class ChallengeService {
   }
 
   // Get exam subjects
+  // Get exam subjects
   static Future<List<String>> getExamSubjects(String examId) async {
     try {
       final response = await _supabase
@@ -578,10 +581,271 @@ class ChallengeService {
           .eq('id', examId)
           .single();
 
+      if (response['strengths'] == null) {
+        print('No strengths found for exam $examId');
+        return [];
+      }
+
+      // Parse the JSON array
       final strengths = response['strengths'] as List;
-      return strengths.map((s) => s.toString()).toList();
+
+      // Extract just the subject names (not subtopics)
+      final subjects = <String>[];
+      for (var item in strengths) {
+        if (item is Map && item.containsKey('subject')) {
+          subjects.add(item['subject'].toString());
+        }
+      }
+
+      print('Extracted subjects: $subjects');
+      return subjects;
     } catch (e) {
       print('Error getting subjects: $e');
+      return [];
+    }
+  }
+
+  // Like/unlike a comment
+  static Future<bool> toggleCommentLike(String commentId) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return false;
+
+      final existingLike = await _supabase
+          .from('comment_likes')
+          .select()
+          .eq('comment_id', commentId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (existingLike != null) {
+        await _supabase
+            .from('comment_likes')
+            .delete()
+            .eq('comment_id', commentId)
+            .eq('user_id', userId);
+      } else {
+        await _supabase.from('comment_likes').insert({
+          'comment_id': commentId,
+          'user_id': userId,
+        });
+      }
+
+      return true;
+    } catch (e) {
+      print('Error toggling comment like: $e');
+      return false;
+    }
+  }
+
+// Check if user has liked a comment
+  static Future<bool> hasUserLikedComment(String commentId) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return false;
+
+      final response = await _supabase
+          .from('comment_likes')
+          .select()
+          .eq('comment_id', commentId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      return response != null;
+    } catch (e) {
+      print('Error checking comment like: $e');
+      return false;
+    }
+  }
+
+
+
+  static Future<bool> addReply(String commentId, String replyText) async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return false;
+
+      await Supabase.instance.client.from('challenge_comment_replies').insert({  // ✅ CORRECT TABLE
+        'comment_id': commentId,
+        'user_id': user.id,
+        'reply_text': replyText,
+      });
+
+      return true;
+    } catch (e) {
+      print('Error adding reply: $e');
+      return false;
+    }
+  }
+
+// Get replies for a comment
+  // CORRECT - Use the constraint name
+  static Future<List<Map<String, dynamic>>> getReplies(String commentId) async {
+    try {
+      print('=== FETCHING REPLIES FOR COMMENT: $commentId ===');
+
+      final response = await Supabase.instance.client
+          .from('challenge_comment_replies')
+          .select('''
+          id,
+          reply_text,
+          created_at,
+          user_id
+        ''')
+          .eq('comment_id', commentId)
+          .order('created_at', ascending: true);
+
+      print('Raw replies response: $response');
+      print('Number of replies: ${(response as List).length}');
+
+      final replies = <Map<String, dynamic>>[];
+
+      for (var reply in (response as List)) {
+        print('Processing reply: ${reply['id']}');
+
+        // Get user profile separately
+        Map<String, dynamic>? userProfile;
+        try {
+          userProfile = await Supabase.instance.client
+              .from('user_profiles')
+              .select('full_name, avatar_url')
+              .eq('id', reply['user_id'])
+              .maybeSingle();
+
+          print('User profile for ${reply['user_id']}: $userProfile');
+        } catch (e) {
+          print('Error fetching user profile: $e');
+        }
+
+        replies.add({
+          'id': reply['id'],
+          'reply_text': reply['reply_text'],
+          'created_at': reply['created_at'],
+          'user_id': reply['user_id'],
+          'user_name': userProfile?['full_name'] ?? 'Unknown',
+          'avatar_url': userProfile?['avatar_url'],
+        });
+      }
+
+      print('=== FINAL REPLIES COUNT: ${replies.length} ===');
+      return replies;
+    } catch (e, stackTrace) {
+      print('Error fetching replies: $e');
+      print('Stack trace: $stackTrace');
+      return [];
+    }
+  }
+
+  // Toggle reply like
+  static Future<bool> toggleReplyLike(String replyId) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return false;
+
+      final existingLike = await _supabase
+          .from('reply_likes')
+          .select()
+          .eq('reply_id', replyId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (existingLike != null) {
+        await _supabase
+            .from('reply_likes')
+            .delete()
+            .eq('reply_id', replyId)
+            .eq('user_id', userId);
+        await _supabase.rpc('decrement_reply_likes', params: {'reply_id': replyId});
+      } else {
+        await _supabase.from('reply_likes').insert({
+          'reply_id': replyId,
+          'user_id': userId,
+        });
+        await _supabase.rpc('increment_reply_likes', params: {'reply_id': replyId});
+      }
+
+      return true;
+    } catch (e) {
+      print('Error toggling reply like: $e');
+      return false;
+    }
+  }
+
+// Check if user has liked a reply
+  static Future<bool> hasUserLikedReply(String replyId) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return false;
+
+      final response = await _supabase
+          .from('reply_likes')
+          .select()
+          .eq('reply_id', replyId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      return response != null;
+    } catch (e) {
+      print('Error checking reply like: $e');
+      return false;
+    }
+  }
+
+// Add reply to a reply
+  static Future<bool> addReplyToReply(String replyId, String replyText) async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return false;
+
+      await _supabase.from('challenge_reply_replies').insert({
+        'reply_id': replyId,
+        'user_id': user.id,
+        'reply_text': replyText,
+      });
+
+      return true;
+    } catch (e) {
+      print('Error adding reply to reply: $e');
+      return false;
+    }
+  }
+
+// Get nested replies for a reply
+  static Future<List<Map<String, dynamic>>> getNestedReplies(String replyId) async {
+    try {
+      final response = await _supabase
+          .from('challenge_reply_replies')
+          .select('*')
+          .eq('reply_id', replyId)
+          .order('created_at', ascending: true);
+
+      final nestedReplies = <Map<String, dynamic>>[];
+
+      for (var reply in (response as List)) {
+        Map<String, dynamic>? userProfile;
+        try {
+          userProfile = await _supabase
+              .from('user_profiles')
+              .select('full_name, avatar_url')
+              .eq('id', reply['user_id'])
+              .maybeSingle();
+        } catch (e) {
+          print('Error fetching user profile: $e');
+        }
+
+        nestedReplies.add({
+          'id': reply['id'],
+          'reply_text': reply['reply_text'],
+          'created_at': reply['created_at'],
+          'user_id': reply['user_id'],
+          'user_name': userProfile?['full_name'] ?? 'Unknown',
+          'avatar_url': userProfile?['avatar_url'],
+        });
+      }
+
+      return nestedReplies;
+    } catch (e) {
+      print('Error fetching nested replies: $e');
       return [];
     }
   }

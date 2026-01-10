@@ -818,7 +818,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
                     children: [
                       _buildInfoChip(
                         icon: Icons.subject,
-                        label: challenge['subject'],
+                        label: _truncateText(challenge['subject'], 15),
                         color: const Color(0xFF8A1FFF),
                       ),
                       _buildInfoChip(
@@ -1166,5 +1166,12 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
     } else {
       return 'Just now';
     }
+  }
+
+  String _truncateText(String text, int maxLength) {
+    if (text.length <= maxLength) {
+      return text;
+    }
+    return '${text.substring(0, maxLength)}...';
   }
 }

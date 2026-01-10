@@ -28,6 +28,26 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
   late Animation<Offset> _slideAnimation;
   int _selectedTab = 0; // 0: Comments, 1: Updates, 2: Participants
 
+  Map<String, List<Map<String, dynamic>>> _replies = {};
+  Map<String, bool> _commentLikes = {};
+  Map<String, bool> _expandedComments = {};
+  String? _replyingToCommentId;
+  final _replyController = TextEditingController();
+  bool _isSubmittingReply = false;
+
+
+  Map<String, List<Map<String, dynamic>>> _nestedReplies = {}; // Add this
+
+  Map<String, bool> _replyLikes = {}; // Add this
+
+  Map<String, bool> _expandedReplies = {}; // Add this
+
+  String? _replyingToReplyId; // Add this
+
+  final _nestedReplyController = TextEditingController(); // Add this
+
+  bool _isSubmittingNestedReply = false; // Add this
+
   @override
   void initState() {
     super.initState();
@@ -67,6 +87,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
   @override
   void dispose() {
     _commentController.dispose();
+    _replyController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -131,19 +152,44 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
       final hasJoined = await ChallengeService.hasUserJoinedChallenge(widget.challengeId);
       print('User has joined: $hasJoined');
 
+
+      // Load comment likes
+      // Load comment likes
+      final commentLikes = <String, bool>{};
+      for (var comment in comments) {
+        commentLikes[comment['id']] = await ChallengeService.hasUserLikedComment(comment['id']);
+      }
+
+// Load replies for each comment
+      final replies = <String, List<Map<String, dynamic>>>{};
+      final replyLikes = <String, bool>{}; // Add this
+      final nestedReplies = <String, List<Map<String, dynamic>>>{}; // Add this
+
+      for (var comment in comments) {
+        final commentReplies = await ChallengeService.getReplies(comment['id']);
+        replies[comment['id']] = commentReplies;
+
+        // Load likes and nested replies for each reply
+        for (var reply in commentReplies) {
+          replyLikes[reply['id']] = await ChallengeService.hasUserLikedReply(reply['id']);
+          nestedReplies[reply['id']] = await ChallengeService.getNestedReplies(reply['id']);
+        }
+      }
+
       if (mounted) {
         setState(() {
           _challenge = challenge;
           _comments = comments;
           _participants = participants;
           _updates = updates;
+          _replies = replies;
+          _commentLikes = commentLikes;
+          _replyLikes = replyLikes; // Add this
+          _nestedReplies = nestedReplies; // Add this
           _isLiked = hasLiked;
           _hasJoined = hasJoined;
           _isLoading = false;
         });
-        print('=== DEBUG: Data loaded successfully ===');
-        print('Challenge title: ${_challenge!['title']}');
-        print('UI should now update');
       }
     } catch (e, stackTrace) {
       print('ERROR loading challenge: $e');
@@ -159,6 +205,56 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
 
   Future<void> _refreshChallengeDetails() async {
     await _loadChallengeDetails();
+  }
+
+  Future<void> _toggleReplyLike(String replyId) async {
+    if (!_isAuthenticated) return;
+
+    final wasLiked = _replyLikes[replyId] ?? false;
+    final reply = _replies.values
+        .expand((list) => list)
+        .firstWhere((r) => r['id'] == replyId);
+    final currentLikes = reply['likes_count'] as int? ?? 0;
+
+    setState(() {
+      _replyLikes[replyId] = !wasLiked;
+      reply['likes_count'] = currentLikes + (wasLiked ? -1 : 1);
+    });
+
+    final success = await ChallengeService.toggleReplyLike(replyId);
+
+    if (!success) {
+      setState(() {
+        _replyLikes[replyId] = wasLiked;
+        reply['likes_count'] = currentLikes;
+      });
+    }
+  }
+
+  Future<void> _submitNestedReply(String replyId) async {
+    if (!_isAuthenticated) {
+      _showMessage('Please log in to reply', isError: true);
+      return;
+    }
+
+    final replyText = _nestedReplyController.text.trim();
+    if (replyText.isEmpty) return;
+
+    setState(() => _isSubmittingNestedReply = true);
+
+    final success = await ChallengeService.addReplyToReply(replyId, replyText);
+
+    setState(() => _isSubmittingNestedReply = false);
+
+    if (success) {
+      _nestedReplyController.clear();
+      setState(() => _replyingToReplyId = null);
+      FocusScope.of(context).unfocus();
+      _loadChallengeDetails();
+      _showMessage('Reply added!', isError: false);
+    } else {
+      _showMessage('Failed to add reply', isError: true);
+    }
   }
 
   Future<void> _toggleLike() async {
@@ -237,6 +333,54 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
     } else {
       setState(() => _isSubmittingComment = false);
       _showMessage('Failed to add comment', isError: true);
+    }
+  }
+
+  Future<void> _toggleCommentLike(String commentId) async {
+    if (!_isAuthenticated) return;
+
+    final wasLiked = _commentLikes[commentId] ?? false;
+    final comment = _comments.firstWhere((c) => c['id'] == commentId);
+    final currentLikes = comment['likes_count'] as int;
+
+    setState(() {
+      _commentLikes[commentId] = !wasLiked;
+      comment['likes_count'] = currentLikes + (wasLiked ? -1 : 1);
+    });
+
+    final success = await ChallengeService.toggleCommentLike(commentId);
+
+    if (!success) {
+      setState(() {
+        _commentLikes[commentId] = wasLiked;
+        comment['likes_count'] = currentLikes;
+      });
+    }
+  }
+
+  Future<void> _submitReply(String commentId) async {
+    if (!_isAuthenticated) {
+      _showMessage('Please log in to reply', isError: true);
+      return;
+    }
+
+    final replyText = _replyController.text.trim();
+    if (replyText.isEmpty) return;
+
+    setState(() => _isSubmittingReply = true);
+
+    final success = await ChallengeService.addReply(commentId, replyText);
+
+    setState(() => _isSubmittingReply = false);
+
+    if (success) {
+      _replyController.clear();
+      setState(() => _replyingToCommentId = null);
+      FocusScope.of(context).unfocus();
+      _loadChallengeDetails();
+      _showMessage('Reply added!', isError: false);
+    } else {
+      _showMessage('Failed to add reply', isError: true);
     }
   }
 
@@ -604,7 +748,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
                   children: [
                     _buildInfoChip(
                       icon: Icons.subject,
-                      label: _challenge!['subject'],
+                      label: _truncateText(_challenge!['subject'], 15),
                       color: const Color(0xFF8A1FFF),
                     ),
                     _buildInfoChip(
@@ -877,12 +1021,437 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
   Widget _buildCommentItem(Map<String, dynamic> comment) {
     final createdAt = DateTime.parse(comment['created_at']);
     final timeAgo = _getTimeAgo(createdAt);
+    final commentId = comment['id'];
+    final isLiked = _commentLikes[commentId] ?? false;
+    final replies = _replies[commentId] ?? [];
+    final isExpanded = _expandedComments[commentId] ?? false;
+    final isReplying = _replyingToCommentId == commentId;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildAvatar(comment['avatar_url'], comment['user_name'], size: 36),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          comment['user_name'],
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          timeAgo,
+                          style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      comment['comment_text'],
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.4,
+                        color: Colors.grey.shade800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () => _toggleCommentLike(commentId),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isLiked ? Icons.favorite : Icons.favorite_border,
+                                size: 16,
+                                color: isLiked ? Colors.red : Colors.grey.shade600,
+                              ),
+                              if (comment['likes_count'] > 0) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${comment['likes_count']}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: isLiked ? Colors.red : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (_replyingToCommentId == commentId) {
+                                _replyingToCommentId = null;
+                              } else {
+                                _replyingToCommentId = commentId;
+                              }
+                            });
+                          },
+                          child: Text(
+                            'Reply',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                        if (replies.isNotEmpty) ...[
+                          const SizedBox(width: 16),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _expandedComments[commentId] = !isExpanded;
+                              });
+                            },
+                            child: Row(
+                              children: [
+                                Text(
+                                  '${replies.length} ${replies.length == 1 ? 'reply' : 'replies'}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF8A1FFF),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                  size: 16,
+                                  color: const Color(0xFF8A1FFF),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (isReplying) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF8A1FFF).withOpacity(0.5)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _replyController,
+                      decoration: InputDecoration(
+                        hintText: 'Reply to ${comment['user_name']}...',
+                        hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                        isDense: true,
+                      ),
+                      maxLines: null,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _isSubmittingReply ? null : () => _submitReply(commentId),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: _isSubmittingReply
+                          ? const Center(
+                        child: SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      )
+                          : const Icon(Icons.send, color: Colors.white, size: 16),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (isExpanded && replies.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.only(left: 12),
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(color: Colors.grey.shade300, width: 2),
+                ),
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: replies.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 10),
+                itemBuilder: (context, index) => _buildReplyItem(replies[index]),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReplyItem(Map<String, dynamic> reply) {
+    final createdAt = DateTime.parse(reply['created_at']);
+    final timeAgo = _getTimeAgo(createdAt);
+    final replyId = reply['id'];
+    final isLiked = _replyLikes[replyId] ?? false;
+    final likesCount = reply['likes_count'] as int? ?? 0;
+    final nestedReplies = _nestedReplies[replyId] ?? [];
+    final isExpanded = _expandedReplies[replyId] ?? false;
+    final isReplying = _replyingToReplyId == replyId;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildAvatar(reply['avatar_url'], reply['user_name'], size: 28),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        reply['user_name'],
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        timeAgo,
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    reply['reply_text'],
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => _toggleReplyLike(replyId),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isLiked ? Icons.favorite : Icons.favorite_border,
+                              size: 14,
+                              color: isLiked ? Colors.red : Colors.grey.shade600,
+                            ),
+                            if (likesCount > 0) ...[
+                              const SizedBox(width: 3),
+                              Text(
+                                '$likesCount',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: isLiked ? Colors.red : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (_replyingToReplyId == replyId) {
+                              _replyingToReplyId = null;
+                            } else {
+                              _replyingToReplyId = replyId;
+                            }
+                          });
+                        },
+                        child: Text(
+                          'Reply',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                      if (nestedReplies.isNotEmpty) ...[
+                        const SizedBox(width: 12),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _expandedReplies[replyId] = !isExpanded;
+                            });
+                          },
+                          child: Row(
+                            children: [
+                              Text(
+                                '${nestedReplies.length} ${nestedReplies.length == 1 ? 'reply' : 'replies'}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF8A1FFF),
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              Icon(
+                                isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                size: 14,
+                                color: const Color(0xFF8A1FFF),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (isReplying) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 36),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF8A1FFF).withOpacity(0.5)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _nestedReplyController,
+                      decoration: InputDecoration(
+                        hintText: 'Reply to ${reply['user_name']}...',
+                        hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                        isDense: true,
+                      ),
+                      maxLines: null,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: _isSubmittingNestedReply ? null : () => _submitNestedReply(replyId),
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: _isSubmittingNestedReply
+                          ? const Center(
+                        child: SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      )
+                          : const Icon(Icons.send, color: Colors.white, size: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        if (isExpanded && nestedReplies.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 36),
+            child: Container(
+              padding: const EdgeInsets.only(left: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(color: Colors.grey.shade300, width: 1.5),
+                ),
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: nestedReplies.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
+                itemBuilder: (context, index) => _buildNestedReplyItem(nestedReplies[index]),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildNestedReplyItem(Map<String, dynamic> nestedReply) {
+    final createdAt = DateTime.parse(nestedReply['created_at']);
+    final timeAgo = _getTimeAgo(createdAt);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildAvatar(comment['avatar_url'], comment['user_name'], size: 40),
-        const SizedBox(width: 12),
+        _buildAvatar(nestedReply['avatar_url'], nestedReply['user_name'], size: 24),
+        const SizedBox(width: 6),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -890,24 +1459,24 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
               Row(
                 children: [
                   Text(
-                    comment['user_name'],
+                    nestedReply['user_name'],
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                      fontSize: 12,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                   Text(
                     timeAgo,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 3),
               Text(
-                comment['comment_text'],
+                nestedReply['reply_text'],
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: 12,
                   height: 1.4,
                   color: Colors.grey.shade800,
                 ),
@@ -1375,5 +1944,12 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
     } else {
       return 'Just now';
     }
+  }
+
+  String _truncateText(String text, int maxLength) {
+    if (text.length <= maxLength) {
+      return text;
+    }
+    return '${text.substring(0, maxLength)}...';
   }
 }

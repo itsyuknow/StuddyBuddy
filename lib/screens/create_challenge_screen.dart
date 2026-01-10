@@ -30,6 +30,8 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
   List<Map<String, dynamic>> _exams = [];
   List<String> _subjects = [];
 
+  bool _isKeyboardVisible = false;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -292,38 +294,38 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
   Widget build(BuildContext context) {
     super.build(context);
 
+    // Check if keyboard is visible
+    _isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
+      body: Column(
         children: [
-          SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 16),
-                  _buildChallengeHeader(),
-                  const SizedBox(height: 16),
-                  _buildImageSection(),
-                  const SizedBox(height: 16),
-                  _buildBasicInfo(),
-                  const SizedBox(height: 16),
-                  _buildChallengeSettings(),
-                  const SizedBox(height: 100),
-                ],
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
+                    _buildChallengeHeader(),
+                    const SizedBox(height: 16),
+                    _buildImageSection(),
+                    const SizedBox(height: 16),
+                    _buildBasicInfo(),
+                    const SizedBox(height: 16),
+                    _buildChallengeSettings(),
+                    const SizedBox(height: 100), // Add space for button
+                  ],
+                ),
               ),
             ),
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: _buildSubmitButton(),
-          ),
         ],
       ),
+      bottomNavigationBar: _buildSubmitButton(),
     );
   }
 
@@ -388,7 +390,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
       onTap: _selectedImage == null ? _showImageSourceSheet : null,
       child: Container(
         width: double.infinity,
-        height: _selectedImage != null ? 300 : 180,
+        height: _selectedImage != null ? 200 : 140, // REDUCED heights
         margin: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           gradient: _selectedImage == null
@@ -403,21 +405,21 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
             ? Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.emoji_events_outlined, size: 64, color: Colors.white),
-            const SizedBox(height: 12),
+            const Icon(Icons.emoji_events_outlined, size: 48, color: Colors.white), // REDUCED size
+            const SizedBox(height: 8),
             const Text(
               'Add Challenge Image',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 14, // REDUCED size
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              'Show your achievement or setup',
+              'Show your achievement',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 12, // REDUCED size
                 color: Colors.white.withOpacity(0.8),
               ),
             ),
@@ -434,42 +436,43 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
               ),
             ),
             Positioned(
-              top: 12,
-              right: 12,
+              top: 8,
+              right: 8,
               child: GestureDetector(
                 onTap: () => setState(() => _selectedImage = null),
                 child: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.6),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 20),
+                  child: const Icon(Icons.close, color: Colors.white, size: 18),
                 ),
               ),
             ),
             Positioned(
-              bottom: 12,
-              right: 12,
+              bottom: 8,
+              right: 8,
               child: GestureDetector(
                 onTap: _showImageSourceSheet,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
                     ),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.edit, color: Colors.white, size: 18),
-                      SizedBox(width: 6),
+                      Icon(Icons.edit, color: Colors.white, size: 16),
+                      SizedBox(width: 4),
                       Text(
                         'Change',
                         style: TextStyle(
                           color: Colors.white,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -847,9 +850,10 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
         ],
       ),
       child: SafeArea(
+        top: false, // ADD THIS
         child: Container(
           width: double.infinity,
-          height: 56,
+          height: 52, // REDUCED from 56
           decoration: BoxDecoration(
             gradient: canSubmit && !_isLoading
                 ? const LinearGradient(
@@ -872,18 +876,18 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
             onPressed: canSubmit && !_isLoading ? _createChallenge : null,
             icon: _isLoading
                 ? const SizedBox(
-              width: 20,
-              height: 20,
+              width: 18,
+              height: 18,
               child: CircularProgressIndicator(
                 color: Colors.white,
                 strokeWidth: 2,
               ),
             )
-                : const Icon(Icons.emoji_events, color: Colors.white),
+                : const Icon(Icons.emoji_events, color: Colors.white, size: 20),
             label: Text(
               _isLoading ? 'Creating...' : 'Create Challenge',
               style: const TextStyle(
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),

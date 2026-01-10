@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../tabs/home_tab.dart';
 import '../tabs/search_tab.dart';
@@ -30,9 +31,16 @@ class _MainAppScreenState extends State<MainAppScreen> {
     _selectedIndex = widget.initialTabIndex;
     _loadNotificationCounts();
 
-    // Refresh counts every 30 seconds
+    // Refresh counts periodically
+    _startPeriodicRefresh();
+  }
+
+  void _startPeriodicRefresh() {
     Future.delayed(const Duration(seconds: 30), () {
-      if (mounted) _loadNotificationCounts();
+      if (mounted) {
+        _loadNotificationCounts();
+        _startPeriodicRefresh();
+      }
     });
   }
 
@@ -44,39 +52,79 @@ class _MainAppScreenState extends State<MainAppScreen> {
       // Get unread messages count
       final unreadCount = await ChatService.getUnreadCount();
 
-      // Get new posts count (posts created in last 24 hours)
-      final userProfile = await _supabase
-          .from('users')
-          .select('exam_id')
-          .eq('id', currentUserId)
-          .maybeSingle();
-
+      // Get new posts count - only show if NOT on home tab
       int newPosts = 0;
-      if (userProfile != null) {
-        final yesterday = DateTime.now().subtract(const Duration(hours: 24));
+      if (_selectedIndex != 0) {
+        final prefs = await SharedPreferences.getInstance();
+        final lastViewedStr = prefs.getString('last_viewed_home_${currentUserId}');
 
-        // Count posts from last 24 hours
-        final postsResponse = await _supabase
-            .from('posts')
-            .select('id')
-            .gte('created_at', yesterday.toIso8601String());
+        if (lastViewedStr != null) {
+          final lastViewed = DateTime.parse(lastViewedStr);
 
-        newPosts = (postsResponse as List).length;
+          // Get user's exam to filter posts
+          final userProfile = await _supabase
+              .from('user_profiles')
+              .select('exam_id')
+              .eq('id', currentUserId)
+              .maybeSingle();
+
+          if (userProfile != null) {
+            final examId = userProfile['exam_id'];
+
+            // Count posts created after last view for user's exam
+            final postsResponse = await _supabase
+                .from('posts')
+                .select('id, user_id')
+                .gt('created_at', lastViewed.toIso8601String())
+                .neq('challenge_type', 'study_challenge'); // Exclude challenges
+
+            // Filter by exam
+            int count = 0;
+            for (var post in (postsResponse as List)) {
+              final postUserProfile = await _supabase
+                  .from('user_profiles')
+                  .select('exam_id')
+                  .eq('id', post['user_id'])
+                  .maybeSingle();
+
+              if (postUserProfile != null && postUserProfile['exam_id'] == examId) {
+                count++;
+              }
+            }
+            newPosts = count;
+          }
+        }
       }
-
-      // Get new matches count (users with 85%+ match that are new)
-      int newMatches = 0;
-      // You can implement match counting logic here if needed
 
       if (mounted) {
         setState(() {
           _unreadMessagesCount = unreadCount;
           _newPostsCount = newPosts;
-          _newMatchesCount = newMatches;
+          _newMatchesCount = 0; // You can implement this later
         });
       }
     } catch (e) {
       print('Error loading notification counts: $e');
+    }
+  }
+
+  Future<void> _markHomeAsViewed() async {
+    try {
+      final currentUserId = _supabase.auth.currentUser?.id;
+      if (currentUserId == null) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'last_viewed_home_${currentUserId}',
+        DateTime.now().toIso8601String(),
+      );
+
+      // Clear the badge count
+      setState(() {
+        _newPostsCount = 0;
+      });
+    } catch (e) {
+      print('Error marking home as viewed: $e');
     }
   }
 
@@ -130,8 +178,14 @@ class _MainAppScreenState extends State<MainAppScreen> {
     return GestureDetector(
       onTap: () {
         setState(() => _selectedIndex = index);
-        // Refresh counts when switching tabs
-        _loadNotificationCounts();
+
+        // Mark home as viewed when user taps on home tab
+        if (index == 0) {
+          _markHomeAsViewed();
+        } else {
+          // Refresh counts when switching to other tabs
+          _loadNotificationCounts();
+        }
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

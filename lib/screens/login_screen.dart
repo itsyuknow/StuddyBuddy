@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/user_session.dart';
 import 'main_app_screen.dart';
 import 'signup_screen.dart';
+import 'forgot_password_screen.dart'; // Add this import
 
 class LoginScreen extends StatefulWidget {
   final Map<String, dynamic> examData;
@@ -197,8 +198,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () {
-                      // TODO: Implement forgot password
-                      _showError('Forgot password feature coming soon');
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ForgotPasswordScreen(),
+                        ),
+                      );
                     },
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

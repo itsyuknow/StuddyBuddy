@@ -1,13 +1,28 @@
 {
-    "name": "studdybudyy",
-    "short_name": "studdybudyy",
+    "name": "Edormy - Find Your Study Partner",
+    "short_name": "Edormy",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "Student matching & study companion app",
+    "background_color": "#FFFFFF",
+    "theme_color": "#8A1FFF",
+    "description": "Connect with students, share knowledge, and achieve academic success together. Find your perfect study partner today!",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "categories": [
+        "education",
+        "social",
+        "productivity"
+    ],
+    "scope": "/",
+    "lang": "en-US",
+    "screenshots": [
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "form_factor": "wide"
+        }
+    ],
     "icons": [
         {
             "src": "icons/Icon-192.png",

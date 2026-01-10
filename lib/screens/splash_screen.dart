@@ -20,26 +20,28 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
+
     _controller = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeIn),
     );
-    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
+
+    // Bigger scale range for stronger impact
+    _scaleAnimation = Tween<double>(begin: 0.7, end: 1.1).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
     );
-    _controller.forward();
 
+    _controller.forward();
     _checkLoginAndNavigate();
   }
 
   Future<void> _checkLoginAndNavigate() async {
-    // Wait for animation to complete
     await Future.delayed(const Duration(seconds: 3));
 
-    // Check if user is logged in
     bool isLoggedIn = await UserSession.checkLogin();
 
     if (!mounted) return;
@@ -49,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen>
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
         isLoggedIn && UserSession.hasCompletedOnboarding
-            ? const MainAppScreen(initialTabIndex: 0) // Go to Home tab
+            ? const MainAppScreen(initialTabIndex: 0)
             : const ExamSelectionScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
@@ -85,55 +87,46 @@ class _SplashScreenState extends State<SplashScreen>
                 child: ScaleTransition(
                   scale: _scaleAnimation,
                   child: Container(
-                    width: 200,
-                    height: 200,
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 20,
+                          color: Colors.black.withOpacity(0.25),
+                          blurRadius: 25,
                           offset: const Offset(0, 10),
                         ),
                       ],
                     ),
-                    child: ClipOval(
-                      child: Transform.scale(
-                        scale: 1.3,
-                        child: Image.asset(
-                          'assets/edormy_logo.png',
-                          width: 200,
-                          height: 200,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                    child: Image.asset(
+                      'assets/edormy_logo.png',
+                      width: 280, // 🔥 BIGGER LOGO
+                      height: 280,
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
               FadeTransition(
                 opacity: _fadeAnimation,
                 child: const Text(
                   'Edormy',
                   style: TextStyle(
-                    fontSize: 40,
+                    fontSize: 44,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                     letterSpacing: 2,
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               FadeTransition(
                 opacity: _fadeAnimation,
                 child: const Text(
                   'Study Together, Succeed Together',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 17,
                     color: Colors.white70,
-                    letterSpacing: 0.5,
+                    letterSpacing: 0.6,
                   ),
                 ),
               ),

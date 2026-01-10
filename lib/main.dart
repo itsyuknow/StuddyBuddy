@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'screens/splash_screen.dart';
+import 'screens/reset_password_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,13 +17,43 @@ void main() async {
   runApp(const StuddyBudyyApp());
 }
 
-class StuddyBudyyApp extends StatelessWidget {
+class StuddyBudyyApp extends StatefulWidget {
+  const StuddyBudyyApp({super.key});
 
-const StuddyBudyyApp({super.key});
+  @override
+  State<StuddyBudyyApp> createState() => _StuddyBudyyAppState();
+}
+
+class _StuddyBudyyAppState extends State<StuddyBudyyApp> {
+  final supabase = Supabase.instance.client;
+  late final StreamSubscription<AuthState> _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
+      final event = data.event;
+
+      if (event == AuthChangeEvent.passwordRecovery) {
+        navigatorKey.currentState?.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const ResetPasswordScreen()),
+              (route) => false,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Edormy',
       theme: ThemeData(
@@ -65,3 +97,6 @@ const StuddyBudyyApp({super.key});
     );
   }
 }
+
+/// Global navigator key for auth-based routing
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();

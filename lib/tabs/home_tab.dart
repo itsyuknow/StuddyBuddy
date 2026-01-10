@@ -270,10 +270,6 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 1,
-              ),
             ),
             child: TabBar(
               controller: _tabController,

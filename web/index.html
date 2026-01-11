@@ -5,7 +5,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
   <meta name="description" content="Edormy - Find your perfect study partner. Connect with students, share knowledge, and achieve academic success together.">
 
   <!-- iOS meta tags & icons -->
@@ -41,13 +41,29 @@
       box-sizing: border-box;
     }
 
+    html {
+      height: 100%;
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+    }
+
     body {
       margin: 0;
       padding: 0;
       background: black;
-      overflow-x: hidden;
-      overflow-y: auto;
+      height: 100%;
+      width: 100%;
+      position: fixed;
+      overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Fix for keyboard pushing content */
+    body > flt-glass-pane {
+      height: 100vh !important;
+      height: -webkit-fill-available !important;
     }
 
     /* Loading screen styling */
@@ -186,6 +202,13 @@
         text-align: center;
       }
     }
+
+    /* Prevent viewport resize on keyboard open */
+    @supports (-webkit-touch-callout: none) {
+      body {
+        height: -webkit-fill-available;
+      }
+    }
   </style>
 </head>
 <body>
@@ -202,9 +225,62 @@
   </div>
 </div>
 
+<script>
+  // Disable console in production
+  (function() {
+    const noop = function() {};
+    const methods = ['log', 'debug', 'info', 'warn', 'error', 'table', 'trace', 'dir', 'dirxml', 'group', 'groupCollapsed', 'groupEnd', 'clear', 'count', 'countReset', 'assert', 'profile', 'profileEnd', 'time', 'timeLog', 'timeEnd', 'timeStamp'];
+
+    methods.forEach(function(method) {
+      console[method] = noop;
+    });
+
+    // Prevent reopening console
+    Object.defineProperty(console, '_commandLineAPI', {
+      get: function() { throw 'Console is disabled'; }
+    });
+  })();
+
+  // Disable right-click
+  document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+  });
+
+  // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
+        (e.ctrlKey && e.key === 'U')) {
+      e.preventDefault();
+    }
+  });
+</script>
+
 <script src="flutter_bootstrap.js" async></script>
 
 <script>
+  // Prevent viewport resize when keyboard appears
+  const viewportMeta = document.querySelector('meta[name="viewport"]');
+  let isKeyboardOpen = false;
+
+  // Detect keyboard opening (when input is focused)
+  document.addEventListener('focusin', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      isKeyboardOpen = true;
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    }
+  });
+
+  // Detect keyboard closing (when input loses focus)
+  document.addEventListener('focusout', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      isKeyboardOpen = false;
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+  });
+
   // Hide loading screen when Flutter app is ready
   window.addEventListener('flutter-first-frame', function() {
     setTimeout(function() {
@@ -220,6 +296,13 @@
       document.body.classList.add('loaded');
     }
   }, 10000);
+
+  // Prevent scroll when keyboard is open
+  window.visualViewport?.addEventListener('resize', () => {
+    if (isKeyboardOpen) {
+      window.scrollTo(0, 0);
+    }
+  });
 </script>
 </body>
 </html>

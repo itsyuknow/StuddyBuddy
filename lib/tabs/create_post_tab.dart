@@ -83,6 +83,7 @@ class _CreatePostTabState extends State<CreatePostTab> with SingleTickerProvider
             ),
             child: TabBar(
               controller: _tabController,
+              dividerColor: Colors.transparent,
               indicator: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),

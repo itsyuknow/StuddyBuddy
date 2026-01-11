@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/post_service.dart';
 import '../services/challenge_service.dart';
@@ -23,6 +24,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
   Map<String, bool> _joinedChallenges = {};
   bool _isLoadingPosts = true;
   bool _isLoadingChallenges = true;
+  bool _isLoadingUserData = true;
   bool _isAuthenticated = false;
   String? _userExamId;
   final _supabase = Supabase.instance.client;
@@ -47,17 +49,19 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
     final isLoggedIn = await UserSession.checkLogin();
     final currentUser = _supabase.auth.currentUser;
 
-    print('User authenticated: $isLoggedIn, Current user: $currentUser'); // Debug
-
     setState(() {
       _isAuthenticated = isLoggedIn && currentUser != null;
     });
 
     if (_isAuthenticated) {
+      // Load user exam first, THEN load posts and challenges in parallel
       await _loadUserExam();
-      print('User Exam ID after loading: $_userExamId'); // Debug
-      await _loadPosts();
-      await _loadChallenges();
+
+      // Load posts and challenges simultaneously
+      await Future.wait([
+        _loadPosts(),
+        _loadChallenges(),
+      ]);
     } else {
       setState(() {
         _isLoadingPosts = false;
@@ -100,46 +104,103 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
     setState(() => _isLoadingPosts = true);
 
     try {
-      // Get all posts first
-      final allPosts = await PostService.getPosts();
+      print('🔍 Starting _loadPosts...');
+      print('🔍 User Exam ID: $_userExamId');
 
-      // Filter posts by user's selected exam AND exclude challenges
-      final filteredPosts = <Map<String, dynamic>>[];
+      if (_userExamId == null) {
+        print('⚠️ No exam ID found for user');
+        if (mounted) {
+          setState(() {
+            _posts = [];
+            _isLoadingPosts = false;
+          });
+        }
+        return;
+      }
 
-      for (var post in allPosts) {
-        // Skip posts that are challenges
-        if (post['challenge_type'] == 'study_challenge') {
-          continue;
+      // Get all user profiles with the same exam in ONE query
+      print('🔍 Fetching user profiles with exam_id: $_userExamId');
+      final userProfilesResponse = await _supabase
+          .from('users')
+          .select('id')
+          .eq('exam_id', _userExamId!);
+
+      print('🔍 Found ${userProfilesResponse.length} user profiles');
+
+      final userIds = userProfilesResponse.map((p) => p['id'] as String).toList();
+      print('🔍 User IDs: $userIds');
+
+      if (userIds.isEmpty) {
+        print('⚠️ No users found with this exam');
+        if (mounted) {
+          setState(() {
+            _posts = [];
+            _isLoadingPosts = false;
+          });
+        }
+        return;
+      }
+
+      // Get posts from those users in ONE query - REMOVED avatar_url
+      print('🔍 Fetching posts from ${userIds.length} users...');
+      final postsResponse = await _supabase
+          .from('posts')
+          .select('''
+        id, title, description, image_url, created_at, likes_count, comments_count,
+        user_id, user_name
+      ''')  // REMOVED avatar_url from here
+          .inFilter('user_id', userIds)
+          .isFilter('challenge_type', null)
+          .order('created_at', ascending: false)
+          .limit(50);
+
+      print('🔍 Found ${postsResponse.length} posts');
+
+      // Get avatars from users table
+      // Get avatars from users table
+      final posts = List<Map<String, dynamic>>.from(postsResponse);
+
+// Fetch all user avatars in one query
+      final uniqueUserIds = posts.map((p) => p['user_id']).toSet().toList();
+      if (uniqueUserIds.isNotEmpty) {
+        final usersResponse = await _supabase
+            .from('users')
+            .select('id, avatar_url')
+            .inFilter('id', uniqueUserIds);
+
+        // Create a map with proper null handling
+        final userAvatars = <String, String?>{};
+        for (var user in usersResponse) {
+          userAvatars[user['id']] = user['avatar_url'];
         }
 
-        final postUserId = post['user_id'];
-
-        // Get the post creator's exam
-        final userProfile = await _supabase
-            .from('user_profiles')
-            .select('exam_id')
-            .eq('id', postUserId)
-            .maybeSingle();
-
-        if (userProfile != null && userProfile['exam_id'] == _userExamId) {
-          filteredPosts.add(post);
+        // Add avatar_url to each post
+        for (var post in posts) {
+          final avatarUrl = userAvatars[post['user_id']];
+          post['avatar_url'] = (avatarUrl == null || avatarUrl.isEmpty) ? 'null' : avatarUrl;
         }
       }
 
-      // Load liked status for each post
+      // Load liked status in parallel
       final likedPosts = <String, bool>{};
-      for (var post in filteredPosts) {
-        likedPosts[post['id']] = await PostService.hasUserLiked(post['id']);
-      }
+      await Future.wait(
+        posts.map((post) async {
+          likedPosts[post['id']] = await PostService.hasUserLiked(post['id']);
+        }),
+      );
 
-      setState(() {
-        _posts = filteredPosts;
-        _likedPosts = likedPosts;
-        _isLoadingPosts = false;
-      });
+      print('✅ Successfully loaded ${posts.length} posts');
+
+      if (mounted) {
+        setState(() {
+          _posts = posts;
+          _likedPosts = likedPosts;
+          _isLoadingPosts = false;
+        });
+      }
     } catch (e) {
-      print('Error loading posts: $e');
-      setState(() => _isLoadingPosts = false);
+      print('❌ Error loading posts: $e');
+      if (mounted) setState(() => _isLoadingPosts = false);
     }
   }
 
@@ -147,38 +208,68 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
     setState(() => _isLoadingChallenges = true);
 
     try {
-      print('Loading challenges for exam ID: $_userExamId'); // Debug print
+      // Direct query with exam filter - REMOVED avatar_url
+      final challengesResponse = await _supabase
+          .from('challenges')
+          .select('''
+          id, title, description, image_url, created_at, likes_count, 
+          comments_count, participants_count, user_id, user_name,
+          difficulty, duration_days, subject, exam_id
+        ''')  // REMOVED avatar_url from here
+          .eq('exam_id', _userExamId ?? '')
+          .order('created_at', ascending: false)
+          .limit(50);
 
-      // Use ChallengeService instead of direct Supabase query
-      final allChallenges = await ChallengeService.getChallenges();
+      final challenges = List<Map<String, dynamic>>.from(challengesResponse);
 
-      print('Total challenges from service: ${allChallenges.length}'); // Debug print
+// Get avatars from users table
+      final uniqueUserIds = challenges.map((c) => c['user_id']).toSet().toList();
 
-      // Filter by user's exam if they have one selected
-      final filteredChallenges = _userExamId != null
-          ? allChallenges.where((c) => c['exam_id'] == _userExamId).toList()
-          : allChallenges;
+      if (uniqueUserIds.isNotEmpty) {
+        final usersResponse = await _supabase
+            .from('users')
+            .select('id, avatar_url')
+            .inFilter('id', uniqueUserIds);
 
-      print('Filtered challenges count: ${filteredChallenges.length}'); // Debug print
+        // Create a map with proper null handling
+        final userAvatars = <String, String?>{};
+        for (var user in usersResponse) {
+          userAvatars[user['id']] = user['avatar_url'];
+        }
 
-      // Load liked and joined status for each challenge
+        // Add avatar_url to each challenge
+        for (var challenge in challenges) {
+          final avatarUrl = userAvatars[challenge['user_id']];
+          challenge['avatar_url'] = (avatarUrl == null || avatarUrl.isEmpty) ? 'null' : avatarUrl;
+        }
+      }
+
+      // Load liked and joined status in parallel
       final likedChallenges = <String, bool>{};
       final joinedChallenges = <String, bool>{};
 
-      for (var challenge in filteredChallenges) {
-        likedChallenges[challenge['id']] = await ChallengeService.hasUserLiked(challenge['id']);
-        joinedChallenges[challenge['id']] = await ChallengeService.hasUserJoinedChallenge(challenge['id']);
-      }
+      await Future.wait(
+        challenges.map((challenge) async {
+          final results = await Future.wait([
+            ChallengeService.hasUserLiked(challenge['id']),
+            ChallengeService.hasUserJoinedChallenge(challenge['id']),
+          ]);
+          likedChallenges[challenge['id']] = results[0];
+          joinedChallenges[challenge['id']] = results[1];
+        }),
+      );
 
-      setState(() {
-        _challenges = filteredChallenges;
-        _likedChallenges = likedChallenges;
-        _joinedChallenges = joinedChallenges;
-        _isLoadingChallenges = false;
-      });
+      if (mounted) {
+        setState(() {
+          _challenges = challenges;
+          _likedChallenges = likedChallenges;
+          _joinedChallenges = joinedChallenges;
+          _isLoadingChallenges = false;
+        });
+      }
     } catch (e) {
       print('Error loading challenges: $e');
-      setState(() => _isLoadingChallenges = false);
+      if (mounted) setState(() => _isLoadingChallenges = false);
     }
   }
 
@@ -341,36 +432,13 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
 
   Widget _buildPostsFeed() {
     if (_isLoadingPosts) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [const Color(0xFF8A1FFF), const Color(0xFFC43AFF)],
-                ),
-                shape: BoxShape.circle,
-              ),
-              child: const Padding(
-                padding: EdgeInsets.all(12.0),
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 3,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Loading posts...',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        itemCount: 3, // Show 3 skeleton cards
+        itemBuilder: (context, index) => Shimmer.fromColors(
+          baseColor: Colors.grey.shade300,
+          highlightColor: Colors.grey.shade100,
+          child: _buildPostSkeleton(),
         ),
       );
     }
@@ -674,6 +742,90 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPostSkeleton() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 120,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      width: 80,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            height: 250,
+            color: Colors.grey.shade300,
+          ),
+        ],
       ),
     );
   }

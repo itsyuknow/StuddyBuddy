@@ -11,6 +11,7 @@ import '../screens/exam_selection_screen.dart';
 import '../screens/edit_profile_screen.dart';
 import '../screens/post_details_screen.dart';
 import '../screens/followers_list_screen.dart';
+import 'package:shimmer/shimmer.dart';
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
@@ -24,8 +25,9 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
   Map<String, dynamic>? _userData;
   List<Map<String, dynamic>> _userPosts = [];
   List<Map<String, dynamic>> _userChallenges = [];
-  bool _isLoading = true;
+  bool _isLoadingUser = true;
   bool _isLoadingPosts = true;
+  bool _isLoadingCounts = true;
   bool _isStudyProfileExpanded = false;
   bool _showingPosts = true;
   int _followersCount = 0;
@@ -37,12 +39,21 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _initializeProfile();
+  }
+
+  Future<void> _initializeProfile() async {
+    // Start all loads in parallel
+    await Future.wait([
+      _loadUserData(),
+      _loadFollowCounts(),
+    ]);
+    // Load posts after basic profile is ready
     _loadUserPosts();
-    _loadFollowCounts();
   }
 
   Future<void> _loadFollowCounts() async {
+    setState(() => _isLoadingCounts = true);
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return;
@@ -57,17 +68,21 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
           .select()
           .eq('follower_id', userId);
 
-      setState(() {
-        _followersCount = followersResponse.length;
-        _followingCount = followingResponse.length;
-      });
+      if (mounted) {
+        setState(() {
+          _followersCount = followersResponse.length;
+          _followingCount = followingResponse.length;
+          _isLoadingCounts = false;
+        });
+      }
     } catch (e) {
       print('Error loading follow counts: $e');
+      if (mounted) setState(() => _isLoadingCounts = false);
     }
   }
 
   Future<void> _loadUserData() async {
-    setState(() => _isLoading = true);
+    setState(() => _isLoadingUser = true);
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return;
@@ -79,15 +94,17 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
           .single();
 
       if (response != null) {
-        setState(() {
-          _userData = response;
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _userData = response;
+            _isLoadingUser = false;
+          });
+        }
       } else {
-        setState(() => _isLoading = false);
+        if (mounted) setState(() => _isLoadingUser = false);
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoadingUser = false);
     }
   }
 
@@ -97,26 +114,30 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-      // Load normal posts from PostService
-      final allPosts = await PostService.getPosts();
-      final normalPosts = allPosts
-          .where((post) => post['user_id'] == userId && post['challenge_type'] == null)
-          .toList();
+      // Direct database queries instead of loading everything
+      final postsResponse = await _supabase
+          .from('posts')
+          .select()
+          .eq('user_id', userId)
+          .isFilter('challenge_type', null)  // Changed from .is_() to .isFilter()
+          .order('created_at', ascending: false);
 
-      // Load challenges from ChallengeService
-      final allChallenges = await ChallengeService.getChallenges();
-      final userChallenges = allChallenges
-          .where((challenge) => challenge['user_id'] == userId)
-          .toList();
+      final challengesResponse = await _supabase
+          .from('challenges')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
 
-      setState(() {
-        _userPosts = normalPosts;
-        _userChallenges = userChallenges;
-        _isLoadingPosts = false;
-      });
+      if (mounted) {
+        setState(() {
+          _userPosts = List<Map<String, dynamic>>.from(postsResponse);
+          _userChallenges = List<Map<String, dynamic>>.from(challengesResponse);
+          _isLoadingPosts = false;
+        });
+      }
     } catch (e) {
       print('Error loading user posts and challenges: $e');
-      setState(() => _isLoadingPosts = false);
+      if (mounted) setState(() => _isLoadingPosts = false);
     }
   }
 
@@ -193,50 +214,7 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
   Widget build(BuildContext context) {
     super.build(context);
 
-    if (_isLoading) {
-      return Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
-            ),
-          ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 70,
-                  height: 70,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.2),
-                    border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
-                  ),
-                  child: const CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 3,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Loading your profile...',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+
 
     return Scaffold(
       body: Container(
@@ -415,30 +393,53 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
                     const SizedBox(height: 20),
                     // Stats row
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildGlassStatColumn(_userPosts.length.toString(), 'Posts', null),
-                        _buildGlassStatColumn(_followersCount.toString(), 'Followers', () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => FollowersListScreen(userId: _supabase.auth.currentUser!.id, initialTab: 0),
-                            ),
-                          ).then((_) => _loadFollowCounts());
-                        }),
-                        _buildGlassStatColumn(_followingCount.toString(), 'Following', () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => FollowersListScreen(userId: _supabase.auth.currentUser!.id, initialTab: 1),
-                            ),
-                          ).then((_) => _loadFollowCounts());
-                        }),
-                      ],
-                    ),
-                  ],
-                );
-              } else {
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                    // Posts stat with shimmer loading
+                    _isLoadingPosts
+                    ? Shimmer.fromColors(
+                    baseColor: Colors.white.withOpacity(0.3),
+                    highlightColor: Colors.white.withOpacity(0.5),
+                    child: _buildSkeletonStat(),
+                    )
+                        : _buildGlassStatColumn(_userPosts.length.toString(), 'Posts', null),
+
+                    // Followers stat with shimmer loading
+                    _isLoadingCounts
+                    ? Shimmer.fromColors(
+                    baseColor: Colors.white.withOpacity(0.3),
+                    highlightColor: Colors.white.withOpacity(0.5),
+              child: _buildSkeletonStat(),
+              )
+                  : _buildGlassStatColumn(_followersCount.toString(), 'Followers', () {
+              Navigator.push(
+              context,
+              MaterialPageRoute(
+              builder: (_) => FollowersListScreen(userId: _supabase.auth.currentUser!.id, initialTab: 0),
+              ),
+              ).then((_) => _loadFollowCounts());
+              }),
+
+              // Following stat with shimmer loading
+              _isLoadingCounts
+              ? Shimmer.fromColors(
+              baseColor: Colors.white.withOpacity(0.3),
+              highlightColor: Colors.white.withOpacity(0.5),
+              child: _buildSkeletonStat(),
+              )
+                  : _buildGlassStatColumn(_followingCount.toString(), 'Following', () {
+              Navigator.push(
+              context,
+              MaterialPageRoute(
+              builder: (_) => FollowersListScreen(userId: _supabase.auth.currentUser!.id, initialTab: 1),
+              ),
+              ).then((_) => _loadFollowCounts());
+              },
+    ),
+    ],
+    )])
+              ;
+    } else {
                 // Original row layout for larger screens
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1113,6 +1114,40 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
                 ),
               );
             }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSkeletonStat() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      constraints: const BoxConstraints(minWidth: 60),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.3)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 30,
+            height: 18,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            width: 50,
+            height: 11,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(4),
+            ),
           ),
         ],
       ),

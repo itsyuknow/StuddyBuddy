@@ -154,13 +154,32 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
 
     try {
       final userId = _supabase.auth.currentUser?.id;
-      final file = File(pickedFile.path);
+      if (userId == null) {
+        throw Exception('User not logged in');
+      }
+
+      // Show loading indicator
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF8A1FFF)),
+        ),
+      );
+
+      // Read file as bytes
+      final bytes = await pickedFile.readAsBytes();
       final fileName = '$userId/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
 
-      await _supabase.storage.from('profiles').upload(
+      // Upload to Supabase storage
+      await _supabase.storage.from('profiles').uploadBinary(
         fileName,
-        file,
-        fileOptions: const FileOptions(upsert: true),
+        bytes,
+        fileOptions: const FileOptions(
+          contentType: 'image/jpeg',
+          upsert: true,
+        ),
       );
 
       final avatarUrl = _supabase.storage.from('profiles').getPublicUrl(fileName);
@@ -168,9 +187,13 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
       await _supabase.from('users').update({
         'avatar_url': avatarUrl,
         'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', userId!);
+      }).eq('id', userId);
 
-      _loadUserData();
+      // Dismiss loading
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      await _loadUserData();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -189,10 +212,16 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
         ),
       );
     } catch (e) {
+      // Dismiss loading if it's showing
       if (!mounted) return;
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+
+      print('Error updating avatar: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: $e'),
+          content: Text('Error uploading image: ${e.toString()}'),
           backgroundColor: Colors.red.shade400,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

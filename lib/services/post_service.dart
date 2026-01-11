@@ -1,6 +1,9 @@
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'image_picker_service.dart';
 import 'user_session.dart';
+import 'dart:typed_data';
+
 
 class PostService {
   static final _supabase = Supabase.instance.client;
@@ -10,7 +13,7 @@ class PostService {
     required String title,
     required String description,
     String? challengeType,
-    File? imageFile,
+    dynamic imageFile, // Changed from File? to dynamic
   }) async {
     try {
       // Check if user is authenticated
@@ -28,16 +31,23 @@ class PostService {
       // Upload image if provided
       if (imageFile != null) {
         try {
-          final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final fileName = ImagePickerService.getFileName(imageFile, userId);
           final filePath = '$userId/$fileName';
+          final bytes = await ImagePickerService.getImageBytes(imageFile);
 
-          await _supabase.storage.from('post-images').upload(
-            filePath,
-            imageFile,
-            fileOptions: const FileOptions(upsert: true),
-          );
+          if (bytes != null) {
+            // ✅ FIX: convert List<int> → Uint8List
+            final Uint8List uint8Bytes = Uint8List.fromList(bytes);
 
-          imageUrl = _supabase.storage.from('post-images').getPublicUrl(filePath);
+            await _supabase.storage.from('post-images').uploadBinary(
+              filePath,
+              uint8Bytes,
+              fileOptions: const FileOptions(upsert: true),
+            );
+
+            imageUrl =
+                _supabase.storage.from('post-images').getPublicUrl(filePath);
+          }
         } catch (e) {
           print('Error uploading image: $e');
           // Continue without image if upload fails
@@ -47,7 +57,8 @@ class PostService {
       // Get user name from UserSession or users table
       String userName = 'Anonymous';
 
-      if (UserSession.userData != null && UserSession.userData!['full_name'] != null) {
+      if (UserSession.userData != null &&
+          UserSession.userData!['full_name'] != null) {
         userName = UserSession.userData!['full_name'];
       } else {
         // Try to get from users table
@@ -86,6 +97,7 @@ class PostService {
       return {'success': false, 'error': e.toString()};
     }
   }
+
 
   // Get all posts (feed) - OPTIMIZED VERSION
   static Future<List<Map<String, dynamic>>> getPosts({String? examId, int? limit, int? offset}) async {

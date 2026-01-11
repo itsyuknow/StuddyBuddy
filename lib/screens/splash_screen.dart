@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../services/user_session.dart';
 import 'exam_selection_screen.dart';
@@ -12,38 +14,48 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
+    with TickerProviderStateMixin {
+  late AnimationController _mainController;
+  late AnimationController _fadeController;
+
+  late Animation<double> _logoFade;
+  late Animation<double> _logoScale;
 
   @override
   void initState() {
     super.initState();
 
-    _controller = AnimationController(
+    _mainController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
     );
 
-    // Bigger scale range for stronger impact
-    _scaleAnimation = Tween<double>(begin: 0.7, end: 1.1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+    _logoFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: Curves.easeOut,
+      ),
     );
 
-    _controller.forward();
+    _logoScale = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
+    _mainController.forward();
     _checkLoginAndNavigate();
   }
 
   Future<void> _checkLoginAndNavigate() async {
-    await Future.delayed(const Duration(seconds: 3));
-
+    await Future.delayed(const Duration(milliseconds: 3500));
     bool isLoggedIn = await UserSession.checkLogin();
-
     if (!mounted) return;
 
     Navigator.pushReplacement(
@@ -56,81 +68,33 @@ class _SplashScreenState extends State<SplashScreen>
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
-        transitionDuration: const Duration(milliseconds: 500),
+        transitionDuration: const Duration(milliseconds: 400),
       ),
     );
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _mainController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.25),
-                          blurRadius: 25,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Image.asset(
-                      'assets/edormy_logo.png',
-                      width: 280, // 🔥 BIGGER LOGO
-                      height: 280,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 40),
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: const Text(
-                  'Edormy',
-                  style: TextStyle(
-                    fontSize: 44,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 2,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: const Text(
-                  'Study Together, Succeed Together',
-                  style: TextStyle(
-                    fontSize: 17,
-                    color: Colors.white70,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-              ),
-            ],
+      backgroundColor: Colors.white,
+      body: Center(
+        child: FadeTransition(
+          opacity: _logoFade,
+          child: ScaleTransition(
+            scale: _logoScale,
+            child: Image.asset(
+              'assets/edormy_logo.png',
+              width: 320,
+              height: 320,
+              fit: BoxFit.contain,
+            ),
           ),
         ),
       ),

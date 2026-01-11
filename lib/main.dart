@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'widgets/mobile_wrapper.dart';
 import 'screens/splash_screen.dart';
 import 'screens/reset_password_screen.dart';
 
@@ -52,11 +52,12 @@ class _StuddyBudyyAppState extends State<StuddyBudyyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: navigatorKey,
-      debugShowCheckedModeBanner: false,
-      title: 'Edormy',
-      theme: ThemeData(
+    return MobileWrapper(  // ✅ Add this wrapper
+        child: MaterialApp(
+          navigatorKey: navigatorKey,
+          debugShowCheckedModeBanner: false,
+          title: 'Edormy',
+          theme: ThemeData(
         useMaterial3: true,
         colorScheme: const ColorScheme.light(
           primary: Color(0xFF8A1FFF),
@@ -94,7 +95,7 @@ class _StuddyBudyyAppState extends State<StuddyBudyyApp> {
         ),
       ),
       home: const SplashScreen(),
-    );
+    ));
   }
 }
 

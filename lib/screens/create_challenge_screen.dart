@@ -1,9 +1,14 @@
 import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/challenge_service.dart';
+import '../services/image_picker_service.dart';
 import '../services/user_session.dart';
+import 'main_app_screen.dart';
 
 class CreateChallengeScreen extends StatefulWidget {
   const CreateChallengeScreen({super.key});
@@ -20,6 +25,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
   File? _selectedImage;
   bool _isLoading = false;
   final _supabase = Supabase.instance.client;
+ // Changed from File? _selectedImage;
 
   // Challenge settings
   String? _selectedExamId;
@@ -82,17 +88,16 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
+    final pickedImage = await ImagePickerService.pickImage(
       source: source,
       maxWidth: 1920,
       maxHeight: 1920,
       imageQuality: 90,
     );
 
-    if (pickedFile != null) {
+    if (pickedImage != null) {
       setState(() {
-        _selectedImage = File(pickedFile.path);
+        _selectedImage = pickedImage;
       });
     }
   }
@@ -236,7 +241,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
       if (!mounted) return;
 
       if (result['success']) {
-        _showMessage('🏆 Challenge created successfully!', isError: false);
+        _showMessage('🏆 Challenge posted successfully!', isError: false);
 
         _titleController.clear();
         _descriptionController.clear();
@@ -248,6 +253,17 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
           _subjects.clear();
           _selectedDifficulty = 'medium';
           _selectedDuration = 7;
+        });
+
+        // Navigate to home tab after short delay
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => const MainAppScreen(initialTabIndex: 0),
+            ),
+                (route) => false,
+          );
         });
       } else {
         _showMessage(result['error'] ?? 'Failed to create challenge', isError: true);
@@ -390,37 +406,37 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
       onTap: _selectedImage == null ? _showImageSourceSheet : null,
       child: Container(
         width: double.infinity,
-        height: _selectedImage != null ? 200 : 140, // REDUCED heights
+        height: _selectedImage != null ? 400 : 200,
         margin: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          gradient: _selectedImage == null
-              ? const LinearGradient(
-            colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
-          )
-              : null,
+          color: Colors.grey.shade100,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF8A1FFF)),
+          border: Border.all(color: Colors.grey.shade200),
         ),
         child: _selectedImage == null
             ? Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.emoji_events_outlined, size: 48, color: Colors.white), // REDUCED size
-            const SizedBox(height: 8),
-            const Text(
-              'Add Challenge Image',
+            Icon(
+              Icons.add_photo_alternate_outlined,
+              size: 64,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Add Photo (Optional)',
               style: TextStyle(
-                fontSize: 14, // REDUCED size
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: Colors.grey.shade700,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              'Show your achievement',
+              'Share your study setup or materials',
               style: TextStyle(
-                fontSize: 12, // REDUCED size
-                color: Colors.white.withOpacity(0.8),
+                fontSize: 13,
+                color: Colors.grey.shade500,
               ),
             ),
           ],
@@ -430,49 +446,76 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.file(
-                _selectedImage!,
+              child: kIsWeb
+                  ? FutureBuilder<List<int>?>(
+                future:
+                ImagePickerService.getImageBytes(_selectedImage),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState ==
+                      ConnectionState.done &&
+                      snapshot.hasData &&
+                      snapshot.data != null) {
+                    return Image.memory(
+                      Uint8List.fromList(snapshot.data!), // ✅ FIX
+                      fit: BoxFit.cover,
+                    );
+                  }
+                  return Container(
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                },
+              )
+                  : Image.file(
+                _selectedImage as File,
                 fit: BoxFit.cover,
               ),
             ),
             Positioned(
-              top: 8,
-              right: 8,
+              top: 12,
+              right: 12,
               child: GestureDetector(
                 onTap: () => setState(() => _selectedImage = null),
                 child: Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.6),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 18),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
             ),
             Positioned(
-              bottom: 8,
-              right: 8,
+              bottom: 12,
+              right: 12,
               child: GestureDetector(
                 onTap: _showImageSourceSheet,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.edit, color: Colors.white, size: 16),
-                      SizedBox(width: 4),
+                      Icon(Icons.edit,
+                          color: Colors.white, size: 18),
+                      SizedBox(width: 6),
                       Text(
                         'Change',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -486,6 +529,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
       ),
     );
   }
+
 
   Widget _buildBasicInfo() {
     return Padding(

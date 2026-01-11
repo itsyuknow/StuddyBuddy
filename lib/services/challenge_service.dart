@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'image_picker_service.dart';
 import 'user_session.dart';
+import 'dart:typed_data';
+
 
 class ChallengeService {
   static final _supabase = Supabase.instance.client;
 
-  // Create a new challenge
   static Future<Map<String, dynamic>> createChallenge({
     required String title,
     required String description,
@@ -14,7 +16,7 @@ class ChallengeService {
     required String difficulty,
     required int durationDays,
     int? targetScore,
-    File? imageFile,
+    dynamic imageFile, // Changed from File?
   }) async {
     try {
       final currentUser = _supabase.auth.currentUser;
@@ -28,16 +30,23 @@ class ChallengeService {
       // Upload image if provided
       if (imageFile != null) {
         try {
-          final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final fileName = ImagePickerService.getFileName(imageFile, userId);
           final filePath = 'challenges/$userId/$fileName';
+          final bytes = await ImagePickerService.getImageBytes(imageFile);
 
-          await _supabase.storage.from('post-images').upload(
-            filePath,
-            imageFile,
-            fileOptions: const FileOptions(upsert: true),
-          );
+          if (bytes != null) {
+            // ✅ FIX: convert List<int> → Uint8List
+            final Uint8List uint8Bytes = Uint8List.fromList(bytes);
 
-          imageUrl = _supabase.storage.from('post-images').getPublicUrl(filePath);
+            await _supabase.storage.from('post-images').uploadBinary(
+              filePath,
+              uint8Bytes,
+              fileOptions: const FileOptions(upsert: true),
+            );
+
+            imageUrl =
+                _supabase.storage.from('post-images').getPublicUrl(filePath);
+          }
         } catch (e) {
           print('Error uploading image: $e');
         }
@@ -45,7 +54,8 @@ class ChallengeService {
 
       // Get user name
       String userName = 'Anonymous';
-      if (UserSession.userData != null && UserSession.userData!['full_name'] != null) {
+      if (UserSession.userData != null &&
+          UserSession.userData!['full_name'] != null) {
         userName = UserSession.userData!['full_name'];
       } else {
         userName = currentUser.email?.split('@')[0] ?? 'Anonymous';
@@ -76,6 +86,7 @@ class ChallengeService {
       return {'success': false, 'error': e.toString()};
     }
   }
+
 
   // Get all active challenges
   static Future<List<Map<String, dynamic>>> getChallenges({String? examId, String? difficulty}) async {

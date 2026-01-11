@@ -1,9 +1,14 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/image_picker_service.dart';
 import '../services/post_service.dart';
 import '../services/user_session.dart';
+import 'main_app_screen.dart';
+import 'dart:typed_data';
+
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -16,7 +21,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> with AutomaticKeepA
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  File? _selectedImage;
+  dynamic _selectedImage; // Can be File or XFile
   List<String> _tags = [];
   final _tagController = TextEditingController();
   bool _isLoading = false;
@@ -34,17 +39,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> with AutomaticKeepA
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
+    final pickedImage = await ImagePickerService.pickImage(
       source: source,
       maxWidth: 1920,
       maxHeight: 1920,
       imageQuality: 90,
     );
 
-    if (pickedFile != null) {
+    if (pickedImage != null) {
       setState(() {
-        _selectedImage = File(pickedFile.path);
+        _selectedImage = pickedImage;
       });
     }
   }
@@ -188,13 +192,24 @@ class _CreatePostScreenState extends State<CreatePostScreen> with AutomaticKeepA
       if (!mounted) return;
 
       if (result['success']) {
-        _showMessage('✨ Post created successfully!', isError: false);
+        _showMessage('✨ Posted successfully!', isError: false);
 
         _titleController.clear();
         _descriptionController.clear();
         setState(() {
           _selectedImage = null;
           _tags.clear();
+        });
+
+        // Navigate to home tab after short delay
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => const MainAppScreen(initialTabIndex: 0),
+            ),
+                (route) => false,
+          );
         });
       } else {
         _showMessage(result['error'] ?? 'Failed to create post', isError: true);
@@ -345,7 +360,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> with AutomaticKeepA
             ? Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add_photo_alternate_outlined, size: 64, color: Colors.grey.shade400),
+            Icon(
+              Icons.add_photo_alternate_outlined,
+              size: 64,
+              color: Colors.grey.shade400,
+            ),
             const SizedBox(height: 12),
             Text(
               'Add Photo (Optional)',
@@ -370,8 +389,26 @@ class _CreatePostScreenState extends State<CreatePostScreen> with AutomaticKeepA
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.file(
-                _selectedImage!,
+              child: kIsWeb
+                  ? FutureBuilder<List<int>?>(
+                future: ImagePickerService.getImageBytes(_selectedImage),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData && snapshot.data != null) {
+                    return Image.memory(
+                      Uint8List.fromList(snapshot.data!), // ✅ FIX
+                      fit: BoxFit.cover,
+                    );
+                  }
+                  return Container(
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                },
+              )
+                  : Image.file(
+                _selectedImage as File,
                 fit: BoxFit.cover,
               ),
             ),
@@ -386,7 +423,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> with AutomaticKeepA
                     color: Colors.black.withOpacity(0.6),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
             ),
@@ -396,10 +437,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> with AutomaticKeepA
               child: GestureDetector(
                 onTap: _showImageSourceSheet,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                      colors: [
+                        Color(0xFF8A1FFF),
+                        Color(0xFFC43AFF),
+                      ],
                     ),
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -425,6 +472,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> with AutomaticKeepA
       ),
     );
   }
+
 
   Widget _buildCaptionSection() {
     return Padding(

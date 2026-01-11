@@ -242,6 +242,10 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent, // 👈 THIS removes the black line
+
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -251,7 +255,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
             ),
           ),
         ),
-        elevation: 0,
+
         centerTitle: false,
         titleSpacing: 16,
         title: const Text(
@@ -273,6 +277,8 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
             ),
             child: TabBar(
               controller: _tabController,
+              dividerColor: Colors.transparent, // 👈 removes the black line
+
               indicator: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),

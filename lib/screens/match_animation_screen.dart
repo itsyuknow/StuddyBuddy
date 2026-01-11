@@ -138,283 +138,320 @@ class _MatchAnimationScreenState extends State<MatchAnimationScreen>
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Stack(
-          children: [
-            // Confetti background
-            AnimatedBuilder(
-              animation: _confettiController,
-              builder: (context, child) {
-                return CustomPaint(
-                  size: Size.infinite,
-                  painter: ConfettiPainter(_confettiController.value),
-                );
-              },
-            ),
-
-            // Main content
-            Column(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Stack(
               children: [
-                // Close button
-                Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: IconButton(
-                      icon: const Icon(Icons.close, size: 28, color: Color(0xFF8A1FFF)),
-                      onPressed: () => Navigator.pop(context),
+                // Confetti background
+                Positioned.fill(
+                  child: AnimatedBuilder(
+                    animation: _confettiController,
+                    builder: (context, child) {
+                      return CustomPaint(
+                        painter: ConfettiPainter(_confettiController.value),
+                      );
+                    },
+                  ),
+                ),
+
+                // Main content - Using SingleChildScrollView for web compatibility
+                SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
                     ),
-                  ),
-                ),
-
-                const Spacer(flex: 1),
-
-                // Avatars with book icon
-                SizedBox(
-                  height: 200,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Left avatar (current user)
-                      SlideTransition(
-                        position: _leftSlideAnimation,
-                        child: Transform.translate(
-                          offset: const Offset(-40, 0),
-                          child: _buildAvatar(
-                            widget.currentUser['avatar_url'],
-                            widget.currentUser['full_name'] ?? 'You',
-                            120,
+                    child: IntrinsicHeight(
+                      child: Column(
+                        children: [
+                          // Close button
+                          Align(
+                            alignment: Alignment.topRight,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: IconButton(
+                                icon: const Icon(Icons.close,
+                                    size: 28, color: Color(0xFF8A1FFF)),
+                                onPressed: () => Navigator.pop(context),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
 
-                      // Right avatar (matched user)
-                      SlideTransition(
-                        position: _rightSlideAnimation,
-                        child: Transform.translate(
-                          offset: const Offset(40, 0),
-                          child: _buildAvatar(
-                            widget.matchedUser['avatar_url'],
-                            widget.matchedUser['full_name'] ?? 'User',
-                            120,
-                          ),
-                        ),
-                      ),
+                          const SizedBox(height: 20),
 
-                      // Book icon in center
-                      AnimatedBuilder(
-                        animation: _heartController,
-                        builder: (context, child) {
-                          return Transform.scale(
-                            scale: _heartScaleAnimation.value,
-                            child: Transform.rotate(
-                              angle: _heartRotateAnimation.value,
-                              child: Container(
-                                width: 60,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
-                                  ),
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFF8A1FFF).withOpacity(0.4),
-                                      blurRadius: 20,
-                                      spreadRadius: 5,
+                          // Avatars with book icon
+                          SizedBox(
+                            height: 200,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                // Left avatar (current user)
+                                SlideTransition(
+                                  position: _leftSlideAnimation,
+                                  child: Transform.translate(
+                                    offset: const Offset(-40, 0),
+                                    child: _buildAvatar(
+                                      widget.currentUser['avatar_url'],
+                                      widget.currentUser['full_name'] ?? 'You',
+                                      120,
                                     ),
-                                  ],
+                                  ),
                                 ),
-                                child: const Icon(
-                                  Icons.menu_book_rounded,
-                                  color: Colors.white,
-                                  size: 32,
+
+                                // Right avatar (matched user)
+                                SlideTransition(
+                                  position: _rightSlideAnimation,
+                                  child: Transform.translate(
+                                    offset: const Offset(40, 0),
+                                    child: _buildAvatar(
+                                      widget.matchedUser['avatar_url'],
+                                      widget.matchedUser['full_name'] ??
+                                          'User',
+                                      120,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
 
-                const SizedBox(height: 40),
-
-                // "It's a Match!" text
-                FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Column(
-                    children: [
-                      ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [
-                            Color(0xFF8A1FFF),
-                            Color(0xFFC43AFF),
-                          ],
-                        ).createShader(bounds),
-                        child: const Text(
-                          "It's a Match!",
-                          style: TextStyle(
-                            fontSize: 42,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'You and ${widget.matchedUser['full_name'] ?? 'this user'}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'are perfect study partners!',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 40),
-
-                // Match percentage circle
-                AnimatedBuilder(
-                  animation: _percentAnimation,
-                  builder: (context, child) {
-                    return Container(
-                      width: 160,
-                      height: 160,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF8A1FFF).withOpacity(0.3),
-                            blurRadius: 30,
-                            spreadRadius: 5,
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '${_percentAnimation.value.toInt()}%',
-                              style: const TextStyle(
-                                fontSize: 48,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                height: 1,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'MATCH',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                                letterSpacing: 2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-
-                const Spacer(flex: 1),
-
-                // Action buttons
-                FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                    child: Column(
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: Container(
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
-                              ),
-                              borderRadius: BorderRadius.all(Radius.circular(16)),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Color(0x4D8A1FFF),
-                                  blurRadius: 15,
-                                  offset: Offset(0, 8),
+                                // Book icon in center
+                                AnimatedBuilder(
+                                  animation: _heartController,
+                                  builder: (context, child) {
+                                    return Transform.scale(
+                                      scale: _heartScaleAnimation.value,
+                                      child: Transform.rotate(
+                                        angle: _heartRotateAnimation.value,
+                                        child: Container(
+                                          width: 60,
+                                          height: 60,
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              colors: [
+                                                Color(0xFF8A1FFF),
+                                                Color(0xFFC43AFF)
+                                              ],
+                                            ),
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xFF8A1FFF)
+                                                    .withOpacity(0.4),
+                                                blurRadius: 20,
+                                                spreadRadius: 5,
+                                              ),
+                                            ],
+                                          ),
+                                          child: const Icon(
+                                            Icons.menu_book_rounded,
+                                            color: Colors.white,
+                                            size: 32,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ],
                             ),
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                // Navigate to chat or profile
+                          ),
+
+                          const SizedBox(height: 30),
+
+                          // "It's a Match!" text
+                          FadeTransition(
+                            opacity: _fadeAnimation,
+                            child: Column(
+                              children: [
+                                ShaderMask(
+                                  shaderCallback: (bounds) =>
+                                      const LinearGradient(
+                                        colors: [
+                                          Color(0xFF8A1FFF),
+                                          Color(0xFFC43AFF),
+                                        ],
+                                      ).createShader(bounds),
+                                  child: const Text(
+                                    "It's a Match!",
+                                    style: TextStyle(
+                                      fontSize: 42,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'You and ${widget.matchedUser['full_name'] ?? 'this user'}',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'are perfect study partners!',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 30),
+
+                          // Match percentage circle with padding
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: AnimatedBuilder(
+                              animation: _percentAnimation,
+                              builder: (context, child) {
+                                return Container(
+                                  width: 160,
+                                  height: 160,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Color(0xFF8A1FFF),
+                                        Color(0xFFC43AFF)
+                                      ],
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF8A1FFF)
+                                            .withOpacity(0.3),
+                                        blurRadius: 30,
+                                        spreadRadius: 5,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                      MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          '${_percentAnimation.value.toInt()}%',
+                                          style: const TextStyle(
+                                            fontSize: 48,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                            height: 1,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        const Text(
+                                          'MATCH',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                            letterSpacing: 2,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
                               },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                foregroundColor: Colors.white,
-                                shadowColor: Colors.transparent,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                elevation: 0,
-                              ),
-                              child: const Text(
-                                'Say Hi 👋',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            ),
+                          ),
+
+                          const Spacer(),
+
+                          // Action buttons
+                          FadeTransition(
+                            opacity: _fadeAnimation,
+                            child: Padding(
+                              padding:
+                              const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                              child: Column(
+                                children: [
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 56,
+                                    child: Container(
+                                      decoration: const BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Color(0xFF8A1FFF),
+                                            Color(0xFFC43AFF)
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.all(
+                                            Radius.circular(16)),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Color(0x4D8A1FFF),
+                                            blurRadius: 15,
+                                            offset: Offset(0, 8),
+                                          ),
+                                        ],
+                                      ),
+                                      child: ElevatedButton(
+                                        onPressed: () {
+                                          Navigator.pop(context);
+                                          // Navigate to chat or profile
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.transparent,
+                                          foregroundColor: Colors.white,
+                                          shadowColor: Colors.transparent,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                            BorderRadius.circular(16),
+                                          ),
+                                          elevation: 0,
+                                        ),
+                                        child: const Text(
+                                          'Say Hi 👋',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 56,
+                                    child: OutlinedButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(0xFF8A1FFF),
+                                        side: const BorderSide(
+                                            color: Color(0xFF8A1FFF), width: 2),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                          BorderRadius.circular(16),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'Keep Looking',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF8A1FFF),
-                              side: const BorderSide(color: Color(0xFF8A1FFF), width: 2),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: const Text(
-                              'Keep Looking',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -450,7 +487,9 @@ class _MatchAnimationScreenState extends State<MatchAnimationScreen>
         ),
         padding: const EdgeInsets.all(4),
         child: ClipOval(
-          child: avatarUrl != null && avatarUrl.isNotEmpty && avatarUrl != 'null'
+          child: avatarUrl != null &&
+              avatarUrl.isNotEmpty &&
+              avatarUrl != 'null'
               ? Image.network(
             avatarUrl,
             width: size - 16,
@@ -525,7 +564,8 @@ class ConfettiPainter extends CustomPainter {
         ..style = PaintingStyle.fill;
 
       final x = particle.x * size.width;
-      final y = particle.y * size.height + (animationValue * particle.speed * size.height);
+      final y = particle.y * size.height +
+          (animationValue * particle.speed * size.height);
 
       canvas.save();
       canvas.translate(x, y);

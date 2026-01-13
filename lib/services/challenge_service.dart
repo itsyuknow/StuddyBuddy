@@ -860,4 +860,127 @@ class ChallengeService {
       return [];
     }
   }
+
+  // Delete challenge
+  static Future<bool> deleteChallenge(String challengeId) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return false;
+
+      // Verify ownership
+      final challenge = await _supabase
+          .from('challenges')
+          .select('user_id, image_url')
+          .eq('id', challengeId)
+          .single();
+
+      if (challenge['user_id'] != userId) {
+        return false; // Not the owner
+      }
+
+      // Delete image from storage if exists
+      if (challenge['image_url'] != null) {
+        try {
+          final imageUrl = challenge['image_url'] as String;
+          final filePath = imageUrl.split('/post-images/').last.split('?').first;
+          await _supabase.storage.from('post-images').remove([filePath]);
+        } catch (e) {
+          print('Error deleting image: $e');
+        }
+      }
+
+      // Delete challenge (cascading deletes should handle related data)
+      await _supabase.from('challenges').delete().eq('id', challengeId);
+
+      return true;
+    } catch (e) {
+      print('Error deleting challenge: $e');
+      return false;
+    }
+  }
+
+// Update challenge
+  static Future<Map<String, dynamic>> updateChallenge({
+    required String challengeId,
+    required String title,
+    required String description,
+    required String subject,
+    required String difficulty,
+    int? targetScore,
+    dynamic imageFile,
+    bool removeImage = false,
+  }) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) {
+        return {'success': false, 'error': 'User not authenticated'};
+      }
+
+      // Verify ownership
+      final challenge = await _supabase
+          .from('challenges')
+          .select('user_id, image_url')
+          .eq('id', challengeId)
+          .single();
+
+      if (challenge['user_id'] != userId) {
+        return {'success': false, 'error': 'Not authorized'};
+      }
+
+      String? imageUrl = challenge['image_url'];
+
+      // Handle image removal
+      if (removeImage && imageUrl != null) {
+        try {
+          final filePath = imageUrl.split('/post-images/').last.split('?').first;
+          await _supabase.storage.from('post-images').remove([filePath]);
+          imageUrl = null;
+        } catch (e) {
+          print('Error removing image: $e');
+        }
+      }
+
+      // Upload new image if provided
+      if (imageFile != null) {
+        try {
+          // Delete old image if exists
+          if (imageUrl != null) {
+            final oldPath = imageUrl.split('/post-images/').last.split('?').first;
+            await _supabase.storage.from('post-images').remove([oldPath]);
+          }
+
+          final fileName = ImagePickerService.getFileName(imageFile, userId);
+          final filePath = 'challenges/$userId/$fileName';
+          final bytes = await ImagePickerService.getImageBytes(imageFile);
+
+          if (bytes != null) {
+            final Uint8List uint8Bytes = Uint8List.fromList(bytes);
+            await _supabase.storage.from('post-images').uploadBinary(
+              filePath,
+              uint8Bytes,
+              fileOptions: const FileOptions(upsert: true),
+            );
+            imageUrl = _supabase.storage.from('post-images').getPublicUrl(filePath);
+          }
+        } catch (e) {
+          print('Error uploading new image: $e');
+        }
+      }
+
+      // Update challenge
+      final response = await _supabase.from('challenges').update({
+        'title': title,
+        'description': description,
+        'subject': subject,
+        'difficulty': difficulty,
+        'target_score': targetScore,
+        'image_url': imageUrl,
+      }).eq('id', challengeId).select().single();
+
+      return {'success': true, 'data': response};
+    } catch (e) {
+      print('Error updating challenge: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
 }

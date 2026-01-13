@@ -22,7 +22,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
   final _descriptionController = TextEditingController();
   final _targetScoreController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  File? _selectedImage;
+  dynamic _selectedImage; // Can be File or XFile
   bool _isLoading = false;
   final _supabase = Supabase.instance.client;
  // Changed from File? _selectedImage;

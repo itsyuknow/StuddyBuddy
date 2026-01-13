@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/challenge_service.dart';
 import '../services/user_session.dart';
+import 'edit_challenge_screen.dart';
 
 class ChallengeDetailsScreen extends StatefulWidget {
   final String challengeId;
@@ -34,6 +36,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
   String? _replyingToCommentId;
   final _replyController = TextEditingController();
   bool _isSubmittingReply = false;
+  final _supabase = Supabase.instance.client;
 
 
   Map<String, List<Map<String, dynamic>>> _nestedReplies = {}; // Add this
@@ -47,6 +50,8 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
   final _nestedReplyController = TextEditingController(); // Add this
 
   bool _isSubmittingNestedReply = false; // Add this
+
+  bool _isOwner = false;
 
   @override
   void initState() {
@@ -152,18 +157,16 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
       final hasJoined = await ChallengeService.hasUserJoinedChallenge(widget.challengeId);
       print('User has joined: $hasJoined');
 
-
-      // Load comment likes
       // Load comment likes
       final commentLikes = <String, bool>{};
       for (var comment in comments) {
         commentLikes[comment['id']] = await ChallengeService.hasUserLikedComment(comment['id']);
       }
 
-// Load replies for each comment
+      // Load replies for each comment
       final replies = <String, List<Map<String, dynamic>>>{};
-      final replyLikes = <String, bool>{}; // Add this
-      final nestedReplies = <String, List<Map<String, dynamic>>>{}; // Add this
+      final replyLikes = <String, bool>{};
+      final nestedReplies = <String, List<Map<String, dynamic>>>{};
 
       for (var comment in comments) {
         final commentReplies = await ChallengeService.getReplies(comment['id']);
@@ -176,6 +179,10 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
         }
       }
 
+      // Check if current user is the challenge owner
+      final currentUserId = _supabase.auth.currentUser?.id;
+      final challengeOwnerId = challenge['user_id'];
+
       if (mounted) {
         setState(() {
           _challenge = challenge;
@@ -184,10 +191,11 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
           _updates = updates;
           _replies = replies;
           _commentLikes = commentLikes;
-          _replyLikes = replyLikes; // Add this
-          _nestedReplies = nestedReplies; // Add this
+          _replyLikes = replyLikes;
+          _nestedReplies = nestedReplies;
           _isLiked = hasLiked;
           _hasJoined = hasJoined;
+          _isOwner = currentUserId == challengeOwnerId;
           _isLoading = false;
         });
       }
@@ -405,6 +413,110 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
     );
   }
 
+  void _showOptionsMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.edit, color: Color(0xFF8A1FFF)),
+                title: const Text('Edit Challenge', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _navigateToEdit();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Delete Challenge', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmDelete();
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _navigateToEdit() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditChallengeScreen(challenge: _challenge!),
+      ),
+    );
+
+    if (result == true) {
+      _loadChallengeDetails();
+    }
+  }
+
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Challenge?', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('This action cannot be undone. All participants, comments, and updates will be lost.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteChallenge();
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteChallenge() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final success = await ChallengeService.deleteChallenge(widget.challengeId);
+
+    Navigator.pop(context); // Close loading
+
+    if (success) {
+      _showMessage('Challenge deleted successfully', isError: false);
+      await Future.delayed(const Duration(milliseconds: 500));
+      Navigator.pop(context, true); // Return true to indicate deletion
+    } else {
+      _showMessage('Failed to delete challenge', isError: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -434,6 +546,13 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          if (_isOwner && _challenge != null)
+            IconButton(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
+              onPressed: _showOptionsMenu,
+            ),
+        ],
       ),
       body: _buildBody(),
     );

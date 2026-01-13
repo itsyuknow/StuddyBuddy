@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 class MobileWrapper extends StatelessWidget {
   final Widget child;
 
-  // Mobile device dimensions
   static const double mobileWidth = 450.0;
   static const double mobileHeight = 950.0;
 
@@ -16,11 +15,9 @@ class MobileWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!kIsWeb) {
-      // On mobile platforms, just return the child
       return child;
     }
 
-    // On web, force mobile container view
     return Material(
       color: Colors.black,
       child: Container(

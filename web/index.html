@@ -2,71 +2,44 @@
 <html>
 <head>
   <base href="$FLUTTER_BASE_HREF">
-
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-  <meta name="description" content="Edormy - Find your perfect study partner. Connect with students, share knowledge, and achieve academic success together.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Edormy - Find your perfect study partner">
 
-  <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Edormy">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
-
-  <!-- Open Graph / Social Media Meta Tags -->
-  <meta property="og:title" content="Edormy - Your Study Companion">
-  <meta property="og:description" content="Connect with study partners, share knowledge, and achieve academic success together.">
-  <meta property="og:image" content="icons/Icon-512.png">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Edormy">
-
-  <!-- Twitter Card Meta Tags -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Edormy">
-  <meta name="twitter:description" content="Find your perfect study partner">
-  <meta name="twitter:image" content="icons/Icon-512.png">
 
   <title>Edormy - Find Your Study Partner</title>
   <link rel="manifest" href="manifest.json">
 
   <style>
-    * {
+    html, body {
       margin: 0;
       padding: 0;
-      box-sizing: border-box;
-    }
-
-    html {
-      height: 100%;
-      overflow: hidden;
-      position: fixed;
       width: 100%;
-    }
-
-    body {
-      margin: 0;
-      padding: 0;
+      height: 100%;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
       background: black;
-      height: 100%;
-      width: 100%;
-      position: fixed;
-      overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
-      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: none;
     }
 
-    /* Fix for keyboard pushing content */
-    body > flt-glass-pane {
-      height: 100vh !important;
-      height: -webkit-fill-available !important;
+    flutter-view, flt-glass-pane {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      transform: none !important;
     }
 
-    /* Loading screen styling */
     #loading-screen {
       position: fixed;
       top: 0;
@@ -79,7 +52,7 @@
       justify-content: center;
       background: linear-gradient(135deg, #8A1FFF 0%, #C43AFF 100%);
       z-index: 9999;
-      transition: opacity 0.5s ease-out;
+      transition: opacity 0.5s;
     }
 
     #loading-screen.hidden {
@@ -92,7 +65,6 @@
       height: 100px;
       margin-bottom: 30px;
       border-radius: 24px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
       animation: float 3s ease-in-out infinite;
     }
 
@@ -101,16 +73,12 @@
       font-size: 32px;
       font-weight: 700;
       margin-bottom: 12px;
-      letter-spacing: 0.5px;
-      animation: fadeIn 1s ease-in;
     }
 
     .loading-subtext {
       color: rgba(255, 255, 255, 0.9);
       font-size: 16px;
-      font-weight: 400;
       margin-bottom: 40px;
-      letter-spacing: 0.3px;
     }
 
     .loading-spinner {
@@ -136,83 +104,26 @@
       animation: bounce 1.4s ease-in-out infinite both;
     }
 
-    .dot:nth-child(1) {
-      animation-delay: -0.32s;
-    }
-
-    .dot:nth-child(2) {
-      animation-delay: -0.16s;
-    }
+    .dot:nth-child(1) { animation-delay: -0.32s; }
+    .dot:nth-child(2) { animation-delay: -0.16s; }
 
     @keyframes float {
-      0%, 100% {
-        transform: translateY(0px) scale(1);
-      }
-      50% {
-        transform: translateY(-15px) scale(1.03);
-      }
+      0%, 100% { transform: translateY(0px) scale(1); }
+      50% { transform: translateY(-15px) scale(1.03); }
     }
 
     @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+      to { transform: rotate(360deg); }
     }
 
     @keyframes bounce {
-      0%, 80%, 100% {
-        transform: scale(0.6);
-        opacity: 0.5;
-      }
-      40% {
-        transform: scale(1);
-        opacity: 1;
-      }
-    }
-
-    body.loaded #loading-screen {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    @media (max-width: 600px) {
-      .loading-logo {
-        width: 80px;
-        height: 80px;
-      }
-
-      .loading-text {
-        font-size: 28px;
-      }
-
-      .loading-subtext {
-        font-size: 14px;
-        padding: 0 20px;
-        text-align: center;
-      }
-    }
-
-    /* Prevent viewport resize on keyboard open */
-    @supports (-webkit-touch-callout: none) {
-      body {
-        height: -webkit-fill-available;
-      }
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+      40% { transform: scale(1); opacity: 1; }
     }
   </style>
 </head>
 <body>
-<!-- Beautiful Loading Screen -->
+
 <div id="loading-screen">
   <img class="loading-logo" src="icons/Icon-192.png" alt="Edormy Logo">
   <div class="loading-text">Edormy</div>
@@ -226,83 +137,85 @@
 </div>
 
 <script>
-  // Disable console in production
   (function() {
-    const noop = function() {};
-    const methods = ['log', 'debug', 'info', 'warn', 'error', 'table', 'trace', 'dir', 'dirxml', 'group', 'groupCollapsed', 'groupEnd', 'clear', 'count', 'countReset', 'assert', 'profile', 'profileEnd', 'time', 'timeLog', 'timeEnd', 'timeStamp'];
+    'use strict';
 
-    methods.forEach(function(method) {
-      console[method] = noop;
+    let keyboardVisible = false;
+    const viewportHeight = window.innerHeight;
+
+    function brutaForceReset() {
+      // Force everything to top position
+      window.scrollTo(0, 0);
+
+      // Get all Flutter elements
+      const flutterView = document.querySelector('flutter-view');
+      const glassPane = document.querySelector('flt-glass-pane');
+      const sceneHost = document.querySelector('flt-scene-host');
+
+      [document.body, document.documentElement, flutterView, glassPane, sceneHost].forEach(el => {
+        if (el) {
+          el.style.position = 'fixed';
+          el.style.top = '0px';
+          el.style.left = '0px';
+          el.style.transform = 'translate(0px, 0px)';
+          el.style.webkitTransform = 'translate(0px, 0px)';
+          el.scrollTop = 0;
+          el.scrollLeft = 0;
+        }
+      });
+
+      // Force shadow DOM elements
+      if (flutterView?.shadowRoot) {
+        const shadowEl = flutterView.shadowRoot.querySelector('flt-glass-pane');
+        if (shadowEl) {
+          shadowEl.style.position = 'fixed';
+          shadowEl.style.top = '0px';
+          shadowEl.style.transform = 'translate(0px, 0px)';
+          shadowEl.style.webkitTransform = 'translate(0px, 0px)';
+        }
+      }
+    }
+
+    // Track keyboard state
+    window.addEventListener('resize', () => {
+      const heightDiff = viewportHeight - window.innerHeight;
+
+      if (heightDiff > 100) {
+        keyboardVisible = true;
+      } else {
+        if (keyboardVisible) {
+          keyboardVisible = false;
+
+          // Spam reset when keyboard closes
+          for (let i = 0; i < 20; i++) {
+            setTimeout(brutaForceReset, i * 50);
+          }
+        }
+      }
     });
 
-    // Prevent reopening console
-    Object.defineProperty(console, '_commandLineAPI', {
-      get: function() { throw 'Console is disabled'; }
-    });
+    // Continuous monitoring
+    setInterval(() => {
+      if (!keyboardVisible) {
+        brutaForceReset();
+      }
+    }, 100);
+
+    brutaForceReset();
   })();
 
-  // Disable right-click
-  document.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-  });
-
-  // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'F12' ||
-        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
-        (e.ctrlKey && e.key === 'U')) {
-      e.preventDefault();
-    }
-  });
-</script>
-
-<script src="flutter_bootstrap.js" async></script>
-
-<script>
-  // Prevent viewport resize when keyboard appears
-  const viewportMeta = document.querySelector('meta[name="viewport"]');
-  let isKeyboardOpen = false;
-
-  // Detect keyboard opening (when input is focused)
-  document.addEventListener('focusin', function(e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-      isKeyboardOpen = true;
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-    }
-  });
-
-  // Detect keyboard closing (when input loses focus)
-  document.addEventListener('focusout', function(e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-      isKeyboardOpen = false;
-      document.body.style.position = '';
-      document.body.style.width = '';
-    }
-  });
-
-  // Hide loading screen when Flutter app is ready
   window.addEventListener('flutter-first-frame', function() {
     setTimeout(function() {
       document.getElementById('loading-screen').classList.add('hidden');
-      document.body.classList.add('loaded');
     }, 500);
   });
 
-  // Fallback: Hide loading screen after 10 seconds if Flutter doesn't load
   setTimeout(function() {
-    if (!document.body.classList.contains('loaded')) {
-      document.getElementById('loading-screen').classList.add('hidden');
-      document.body.classList.add('loaded');
-    }
+    const loading = document.getElementById('loading-screen');
+    if (loading) loading.classList.add('hidden');
   }, 10000);
-
-  // Prevent scroll when keyboard is open
-  window.visualViewport?.addEventListener('resize', () => {
-    if (isKeyboardOpen) {
-      window.scrollTo(0, 0);
-    }
-  });
 </script>
+
+<script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

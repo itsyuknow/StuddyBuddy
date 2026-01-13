@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/post_service.dart';
 import '../services/user_session.dart';
+import 'edit_post_screen.dart';
 
 class PostDetailsScreen extends StatefulWidget {
   final String postId;
@@ -34,6 +35,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  bool _isOwner = false;
 
   @override
   void initState() {
@@ -131,6 +133,17 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
         });
         return;
       }
+
+      // Check if current user is the post owner
+      final currentUserId = _supabase.auth.currentUser?.id;
+      final postOwnerId = post['user_id'];
+
+      setState(() {
+        _post = post;
+        // ... existing setState code ...
+        _isOwner = currentUserId == postOwnerId;
+        _isLoading = false;
+      });
 
       // User has access, load everything
       final comments = await PostService.getComments(widget.postId);
@@ -304,6 +317,113 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
     );
   }
 
+  void _showOptionsMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.edit, color: Color(0xFF8A1FFF)),
+                title: const Text('Edit Post', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _navigateToEdit();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Delete Post', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmDelete();
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _navigateToEdit() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditPostScreen(post: _post!),
+      ),
+    );
+
+    // If post was updated, reload the details
+    if (result == true) {
+      _loadPostDetails();
+    }
+  }
+
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Post?', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('This action cannot be undone. All comments and likes will be lost.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deletePost();
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deletePost() async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final success = await PostService.deletePost(widget.postId);
+
+    Navigator.pop(context); // Close loading
+
+    if (success) {
+      _showMessage('Post deleted successfully', isError: false);
+      // Wait a moment then go back
+      await Future.delayed(const Duration(milliseconds: 500));
+      Navigator.pop(context, true); // Return true to indicate deletion
+    } else {
+      _showMessage('Failed to delete post', isError: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -342,6 +462,13 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          if (_isOwner && _post != null)
+            IconButton(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
+              onPressed: _showOptionsMenu,
+            ),
+        ],
       ),
       body: _buildBody(),
     );

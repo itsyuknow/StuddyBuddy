@@ -11,6 +11,11 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # Required for web JavaScript interop
+  flutter_web_plugins:
+    sdk: flutter
+  js: ^0.6.7
+
   # iOS style icons
   cupertino_icons: ^1.0.8
 

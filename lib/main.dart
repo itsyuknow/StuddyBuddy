@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:js' as js;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -72,9 +71,32 @@ class _StuddyBudyyAppState extends State<StuddyBudyyApp> with WidgetsBindingObse
 
   @override
   void didChangeMetrics() {
-    // Handle keyboard appearance/disappearance
-    final bottomInset = WidgetsBinding.instance.window.viewInsets.bottom;
-    debugPrint('Keyboard inset: $bottomInset');
+    super.didChangeMetrics();
+    // Unfocus any text field when keyboard closes
+    final currentFocus = FocusManager.instance.primaryFocus;
+    if (currentFocus != null && !currentFocus.hasFocus) {
+      currentFocus.unfocus();
+    }
+
+    // Force rebuild when keyboard opens/closes
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {});
+        }
+      });
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // Unfocus when app goes to background
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
   }
 
   @override
@@ -84,41 +106,28 @@ class _StuddyBudyyAppState extends State<StuddyBudyyApp> with WidgetsBindingObse
         navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         title: 'Edormy',
-        // GLOBAL KEYBOARD HANDLING - Works on all screens
         builder: (context, child) {
-          return PopScope(
-            canPop: false,
-            onPopInvoked: (bool didPop) async {
-              if (didPop) return;
+          if (child == null) return const SizedBox.shrink();
 
-              // Check if keyboard is open
-              final hasFocus = FocusManager.instance.primaryFocus?.hasFocus ?? false;
+          // Get media query data
+          final mediaQuery = MediaQuery.of(context);
 
-              if (hasFocus) {
-                // Close keyboard and prevent navigation
-                FocusManager.instance.primaryFocus?.unfocus();
-
-                // Force scroll reset after keyboard closes
-                await Future.delayed(const Duration(milliseconds: 100));
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  // This ensures the view resets after keyboard animation
-                });
-              } else {
-                // Allow navigation if keyboard is closed
-                if (Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop();
-                }
-              }
-            },
+          // Adjust text scale factor like Dobify does
+          final adjustedChild = MediaQuery(
+            data: mediaQuery.copyWith(
+              textScaleFactor: mediaQuery.textScaleFactor.clamp(0.8, 1.3),
+            ),
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {
-                // Dismiss keyboard when tapping outside input fields
+                // Dismiss keyboard when tapping outside
                 FocusManager.instance.primaryFocus?.unfocus();
               },
-              child: child!,
+              child: child,
             ),
           );
+
+          return adjustedChild;
         },
         theme: ThemeData(
           useMaterial3: true,

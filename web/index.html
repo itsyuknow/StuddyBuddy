@@ -4,7 +4,7 @@
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="description" content="Edormy - Find your perfect study partner">
 
   <meta name="mobile-web-app-capable" content="yes">
@@ -18,26 +18,40 @@
   <link rel="manifest" href="manifest.json">
 
   <style>
-    html, body {
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
       margin: 0;
       padding: 0;
       width: 100%;
-      height: 100%;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      height: 100vh;
+      height: -webkit-fill-available;
       overflow: hidden;
-      background: black;
-      overscroll-behavior: none;
+      position: fixed;
+      background: white;
     }
 
-    flutter-view, flt-glass-pane {
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      transform: none !important;
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      overflow: hidden;
+      background: white;
+      overscroll-behavior: none;
+      -webkit-overflow-scrolling: touch;
+      touch-action: manipulation;
+    }
+
+    /* Fix for keyboard resize issues */
+    #flutter-root {
+      width: 100%;
+      height: 100vh;
+      height: -webkit-fill-available;
+      overflow: hidden;
     }
 
     #loading-screen {
@@ -137,71 +151,80 @@
 </div>
 
 <script>
+  // Prevent viewport resize and handle keyboard properly
   (function() {
-    'use strict';
-
-    let keyboardVisible = false;
-    const viewportHeight = window.innerHeight;
-
-    function brutaForceReset() {
-      // Force everything to top position
-      window.scrollTo(0, 0);
-
-      // Get all Flutter elements
-      const flutterView = document.querySelector('flutter-view');
-      const glassPane = document.querySelector('flt-glass-pane');
-      const sceneHost = document.querySelector('flt-scene-host');
-
-      [document.body, document.documentElement, flutterView, glassPane, sceneHost].forEach(el => {
-        if (el) {
-          el.style.position = 'fixed';
-          el.style.top = '0px';
-          el.style.left = '0px';
-          el.style.transform = 'translate(0px, 0px)';
-          el.style.webkitTransform = 'translate(0px, 0px)';
-          el.scrollTop = 0;
-          el.scrollLeft = 0;
-        }
-      });
-
-      // Force shadow DOM elements
-      if (flutterView?.shadowRoot) {
-        const shadowEl = flutterView.shadowRoot.querySelector('flt-glass-pane');
-        if (shadowEl) {
-          shadowEl.style.position = 'fixed';
-          shadowEl.style.top = '0px';
-          shadowEl.style.transform = 'translate(0px, 0px)';
-          shadowEl.style.webkitTransform = 'translate(0px, 0px)';
-        }
+    // Prevent double-tap zoom
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
       }
+      lastTouchEnd = now;
+    }, false);
+
+    // Handle viewport height for mobile browsers (especially with keyboard)
+    function setViewportHeight() {
+      const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
     }
 
-    // Track keyboard state
-    window.addEventListener('resize', () => {
-      const heightDiff = viewportHeight - window.innerHeight;
+    setViewportHeight();
 
-      if (heightDiff > 100) {
-        keyboardVisible = true;
-      } else {
-        if (keyboardVisible) {
-          keyboardVisible = false;
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', setViewportHeight);
+    }
 
-          // Spam reset when keyboard closes
-          for (let i = 0; i < 20; i++) {
-            setTimeout(brutaForceReset, i * 50);
-          }
-        }
+    window.addEventListener('resize', setViewportHeight);
+
+    // Prevent body scroll
+    document.body.addEventListener('touchmove', (e) => {
+      if (e.target === document.body) {
+        e.preventDefault();
       }
+    }, { passive: false });
+
+    // Handle browser back button - prevent stuck state
+    let isNavigating = false;
+
+    window.addEventListener('popstate', (e) => {
+      if (isNavigating) return;
+      isNavigating = true;
+
+      // Force redraw
+      document.body.style.display = 'none';
+      document.body.offsetHeight; // Trigger reflow
+      document.body.style.display = '';
+
+      setTimeout(() => {
+        isNavigating = false;
+      }, 100);
     });
 
-    // Continuous monitoring
-    setInterval(() => {
-      if (!keyboardVisible) {
-        brutaForceReset();
-      }
-    }, 100);
+    // Prevent stuck state on keyboard close
+    if (window.visualViewport) {
+      let lastHeight = window.visualViewport.height;
 
-    brutaForceReset();
+      window.visualViewport.addEventListener('resize', () => {
+        const currentHeight = window.visualViewport.height;
+
+        // Keyboard closed (viewport expanded)
+        if (currentHeight > lastHeight + 100) {
+          // Blur any focused input
+          if (document.activeElement && document.activeElement.blur) {
+            document.activeElement.blur();
+          }
+
+          // Force layout recalculation
+          document.body.style.minHeight = currentHeight + 'px';
+          setTimeout(() => {
+            document.body.style.minHeight = '';
+          }, 50);
+        }
+
+        lastHeight = currentHeight;
+      });
+    }
   })();
 
   window.addEventListener('flutter-first-frame', function() {

@@ -7,6 +7,7 @@ import '../services/challenge_service.dart';
 import '../services/user_session.dart';
 import '../screens/post_details_screen.dart';
 import '../screens/challenge_details_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -146,9 +147,9 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
       final postsResponse = await _supabase
           .from('posts')
           .select('''
-        id, title, description, image_url, created_at, likes_count, comments_count,
-        user_id, user_name
-      ''')  // REMOVED avatar_url from here
+  id, title, description, image_urls, link_url, created_at, likes_count, comments_count,
+  user_id, user_name
+''')  // REMOVED avatar_url from here
           .inFilter('user_id', userIds)
           .isFilter('challenge_type', null)
           .order('created_at', ascending: false)
@@ -212,10 +213,10 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
       final challengesResponse = await _supabase
           .from('challenges')
           .select('''
-          id, title, description, image_url, created_at, likes_count, 
-          comments_count, participants_count, user_id, user_name,
-          difficulty, duration_days, subject, exam_id
-        ''')  // REMOVED avatar_url from here
+      id, title, description, image_urls, link_url, created_at, likes_count, 
+      comments_count, participants_count, user_id, user_name,
+      difficulty, duration_days, subject, exam_id
+    ''')  // REMOVED avatar_url from here
           .eq('exam_id', _userExamId ?? '')
           .order('created_at', ascending: false)
           .limit(50);
@@ -301,6 +302,35 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
         post['likes_count'] = currentLikes;
       });
     }
+  }
+
+  Future<void> _launchUrl(String urlString) async {
+    try {
+      final uri = Uri.parse(urlString);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not open link'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error launching URL: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Invalid link'),
+            backgroundColor: Colors.red,
+          ),
+        );
+
+  }
+  }
   }
 
   Future<void> _toggleChallengeLike(String challengeId) async {
@@ -592,6 +622,8 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
 
     final postId = post['id'];
     final isLiked = _likedPosts[postId] ?? false;
+    final imageUrls = post['image_urls'] as List?;
+    final linkUrl = post['link_url'] as String?;
 
     return GestureDetector(
       onTap: () {
@@ -680,27 +712,171 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
               ),
             ),
             const SizedBox(height: 12),
-            if (post['image_url'] != null)
-              GestureDetector(
-                onDoubleTap: () => _togglePostLike(postId),
-                child: ClipRRect(
-                  child: Image.network(
-                    post['image_url'],
-                    width: double.infinity,
-                    height: 250,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 250,
-                      color: Colors.grey.shade200,
-                      child: Icon(
-                        Icons.image_not_supported,
-                        size: 48,
-                        color: Colors.grey.shade400,
+
+            // Link section
+            if (linkUrl != null && linkUrl.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: GestureDetector(
+                  onTap: () => _launchUrl(linkUrl),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8A1FFF).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF8A1FFF).withOpacity(0.3),
                       ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.link, color: Colors.white, size: 16),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            linkUrl,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF8A1FFF),
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const Icon(
+                          Icons.open_in_new,
+                          color: Color(0xFF8A1FFF),
+                          size: 18,
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
+
+            if (linkUrl != null && linkUrl.isNotEmpty) const SizedBox(height: 12),
+
+            // 🎯 REPLACE THIS ENTIRE SECTION 🎯
+            // Multiple images with PageView and page indicator
+            if (imageUrls != null && imageUrls.isNotEmpty)
+              StatefulBuilder(
+                builder: (context, setStateLocal) {
+                  int currentPage = 0;
+
+                  return SizedBox(
+                    height: 250,
+                    child: Stack(
+                      children: [
+                        PageView.builder(
+                          itemCount: imageUrls.length,
+                          onPageChanged: (index) {
+                            setStateLocal(() {
+                              currentPage = index;
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            return GestureDetector(
+                              onDoubleTap: () => _togglePostLike(postId),
+                              child: Image.network(
+                                imageUrls[index],
+                                width: double.infinity,
+                                height: 250,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  height: 250,
+                                  color: Colors.grey.shade200,
+                                  child: Icon(
+                                    Icons.image_not_supported,
+                                    size: 48,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+
+                        // Dot indicators at bottom center
+                        if (imageUrls.length > 1)
+                          Positioned(
+                            bottom: 12,
+                            left: 0,
+                            right: 0,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(
+                                imageUrls.length,
+                                    (index) => Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                                  width: currentPage == index ? 24 : 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: currentPage == index
+                                        ? Colors.white
+                                        : Colors.white.withOpacity(0.5),
+                                    borderRadius: BorderRadius.circular(4),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        // Image counter badge at top right
+                        if (imageUrls.length > 1)
+                          Positioned(
+                            top: 12,
+                            right: 12,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.collections,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${currentPage + 1}/${imageUrls.length}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -837,6 +1013,8 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
     final challengeId = challenge['id'];
     final isLiked = _likedChallenges[challengeId] ?? false;
     final isJoined = _joinedChallenges[challengeId] ?? false;
+    final imageUrls = challenge['image_urls'] as List?;
+    final linkUrl = challenge['link_url'] as String?;
 
     Color difficultyColor;
     switch (challenge['difficulty']) {
@@ -991,27 +1169,71 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
               ),
             ),
             const SizedBox(height: 12),
-            if (challenge['image_url'] != null)
-              GestureDetector(
-                onDoubleTap: () => _toggleChallengeLike(challengeId),
-                child: ClipRRect(
-                  child: Image.network(
-                    challenge['image_url'],
-                    width: double.infinity,
-                    height: 250,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 250,
-                      color: Colors.grey.shade200,
-                      child: Icon(
-                        Icons.image_not_supported,
-                        size: 48,
-                        color: Colors.grey.shade400,
+
+            // Link section
+            if (linkUrl != null && linkUrl.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: GestureDetector(
+                  onTap: () => _launchUrl(linkUrl),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8A1FFF).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF8A1FFF).withOpacity(0.3),
                       ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.link, color: Colors.white, size: 16),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            linkUrl,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF8A1FFF),
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const Icon(
+                          Icons.open_in_new,
+                          color: Color(0xFF8A1FFF),
+                          size: 18,
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
+
+            if (linkUrl != null && linkUrl.isNotEmpty) const SizedBox(height: 12),
+
+            // 🎯 UPDATED: Multiple images with swipeable PageView
+            if (imageUrls != null && imageUrls.isNotEmpty)
+              SizedBox(
+                height: 250,
+                child: _ChallengeImageCarousel(
+                  imageUrls: List<String>.from(imageUrls),
+                  onDoubleTap: () => _toggleChallengeLike(challengeId),
+                ),
+              ),
+
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -1327,5 +1549,123 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
       return text;
     }
     return '${text.substring(0, maxLength)}...';
+  }
+}
+
+class _ChallengeImageCarousel extends StatefulWidget {
+  final List<String> imageUrls;
+  final VoidCallback onDoubleTap;
+
+  const _ChallengeImageCarousel({
+    required this.imageUrls,
+    required this.onDoubleTap,
+  });
+
+  @override
+  State<_ChallengeImageCarousel> createState() => _ChallengeImageCarouselState();
+}
+
+class _ChallengeImageCarouselState extends State<_ChallengeImageCarousel> {
+  int _currentPage = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        PageView.builder(
+          itemCount: widget.imageUrls.length,
+          onPageChanged: (index) {
+            setState(() {
+              _currentPage = index;
+            });
+          },
+          itemBuilder: (context, index) {
+            return GestureDetector(
+              onDoubleTap: widget.onDoubleTap,
+              child: Image.network(
+                widget.imageUrls[index],
+                width: double.infinity,
+                height: 250,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 250,
+                  color: Colors.grey.shade200,
+                  child: Icon(
+                    Icons.image_not_supported,
+                    size: 48,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+
+        // Dot indicators at bottom center
+        if (widget.imageUrls.length > 1)
+          Positioned(
+            bottom: 12,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                widget.imageUrls.length,
+                    (index) => Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: _currentPage == index ? 24 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _currentPage == index
+                        ? Colors.white
+                        : Colors.white.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // Image counter badge at top right
+        if (widget.imageUrls.length > 1)
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.collections,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${_currentPage + 1}/${widget.imageUrls.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }

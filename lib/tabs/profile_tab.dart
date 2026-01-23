@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../screens/challenge_details_screen.dart';
@@ -237,6 +238,54 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
       _loadUserPosts(),
       _loadFollowCounts(),
     ]);
+  }
+
+  Future<void> _shareProfile() async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      final username = _userData?['username'] ?? _userData?['full_name'];
+
+      if (userId == null) return;
+
+      final message = '👋 Check out my Edormy profile!\n\n'
+          '📱 Username: $username\n'
+          '🆔 User ID: $userId\n\n'
+          'Copy the User ID and search for me in the app!';
+
+      await Clipboard.setData(ClipboardData(text: message));
+
+      if (!mounted) return;
+      Navigator.pop(context); // Close the menu first
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 12),
+              Text('Profile info copied to clipboard!'),
+            ],
+          ),
+          backgroundColor: const Color(0xFF8A1FFF),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      print('Error sharing profile: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
   }
 
   @override
@@ -1514,6 +1563,15 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
                 ),
               ),
               const SizedBox(height: 24),
+              _buildMenuOption(
+                Icons.share_rounded,
+                'Share Profile',
+                    () {
+                  Navigator.pop(context);
+                  _shareProfile();
+                },
+              ),
+              const SizedBox(width: 16),
               _buildMenuOption(
                 Icons.logout_rounded,
                 'Log out',

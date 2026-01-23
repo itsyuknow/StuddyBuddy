@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../services/chat_service.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_linkify/flutter_linkify.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ChatScreen extends StatefulWidget {
   final String conversationId;
@@ -158,6 +160,84 @@ class _ChatScreenState extends State<ChatScreen> {
     } finally {
       if (mounted) {
         setState(() => _isSending = false);
+      }
+    }
+  }
+
+  Future<void> _onOpenLink(LinkableElement link) async {
+    try {
+      final uri = Uri.parse(link.url);
+
+      // Show confirmation dialog
+      final shouldOpen = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Open Link'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Do you want to open this link?'),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  link.url,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8A1FFF),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Open'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldOpen == true) {
+        if (!await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        )) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Could not open link'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      print('Error opening link: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid link'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -427,11 +507,20 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    message['content'],
+                  // CHANGED: Using Linkify instead of Text
+                  Linkify(
+                    onOpen: _onOpenLink,
+                    text: message['content'],
                     style: TextStyle(
                       fontSize: 15,
                       color: isMe ? Colors.white : Colors.black,
+                      height: 1.4,
+                    ),
+                    linkStyle: TextStyle(
+                      fontSize: 15,
+                      color: isMe ? Colors.white : const Color(0xFF8A1FFF),
+                      decoration: TextDecoration.underline,
+                      fontWeight: FontWeight.w600,
                       height: 1.4,
                     ),
                   ),

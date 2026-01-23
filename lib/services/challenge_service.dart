@@ -16,7 +16,8 @@ class ChallengeService {
     required String difficulty,
     required int durationDays,
     int? targetScore,
-    dynamic imageFile, // Changed from File?
+    List<dynamic>? imageFiles, // Multiple images
+    String? linkUrl, // NEW: Link field
   }) async {
     try {
       final currentUser = _supabase.auth.currentUser;
@@ -25,30 +26,31 @@ class ChallengeService {
       }
 
       final userId = currentUser.id;
-      String? imageUrl;
+      List<String> imageUrls = [];
 
-      // Upload image if provided
-      if (imageFile != null) {
-        try {
-          final fileName = ImagePickerService.getFileName(imageFile, userId);
-          final filePath = 'challenges/$userId/$fileName';
-          final bytes = await ImagePickerService.getImageBytes(imageFile);
+      // Upload multiple images if provided
+      if (imageFiles != null && imageFiles.isNotEmpty) {
+        for (var imageFile in imageFiles) {
+          try {
+            final fileName = ImagePickerService.getFileName(imageFile, userId);
+            final filePath = 'challenges/$userId/$fileName';
+            final bytes = await ImagePickerService.getImageBytes(imageFile);
 
-          if (bytes != null) {
-            // ✅ FIX: convert List<int> → Uint8List
-            final Uint8List uint8Bytes = Uint8List.fromList(bytes);
+            if (bytes != null) {
+              final Uint8List uint8Bytes = Uint8List.fromList(bytes);
 
-            await _supabase.storage.from('post-images').uploadBinary(
-              filePath,
-              uint8Bytes,
-              fileOptions: const FileOptions(upsert: true),
-            );
+              await _supabase.storage.from('post-images').uploadBinary(
+                filePath,
+                uint8Bytes,
+                fileOptions: const FileOptions(upsert: true),
+              );
 
-            imageUrl =
-                _supabase.storage.from('post-images').getPublicUrl(filePath);
+              final url = _supabase.storage.from('post-images').getPublicUrl(filePath);
+              imageUrls.add(url);
+            }
+          } catch (e) {
+            print('Error uploading image: $e');
           }
-        } catch (e) {
-          print('Error uploading image: $e');
         }
       }
 
@@ -75,7 +77,8 @@ class ChallengeService {
         'difficulty': difficulty,
         'duration_days': durationDays,
         'target_score': targetScore,
-        'image_url': imageUrl,
+        'image_urls': imageUrls.isNotEmpty ? imageUrls : null,
+        'link_url': linkUrl,
         'expires_at': expiresAt.toIso8601String(),
         'status': 'active',
       }).select().single();
@@ -134,7 +137,8 @@ class ChallengeService {
           'difficulty': challenge['difficulty'],
           'duration_days': challenge['duration_days'],
           'target_score': challenge['target_score'],
-          'image_url': challenge['image_url'],
+          'image_urls': challenge['image_urls'],
+          'link_url': challenge['link_url'],
           'likes_count': challenge['likes_count'] ?? 0,
           'participants_count': challenge['participants_count'] ?? 0,
           'comments_count': challenge['comments_count'] ?? 0,
@@ -195,7 +199,8 @@ class ChallengeService {
         'difficulty': response['difficulty'],
         'duration_days': response['duration_days'],
         'target_score': response['target_score'],
-        'image_url': response['image_url'],
+        'image_urls': response['image_urls'],
+        'link_url': response['link_url'],
         'likes_count': response['likes_count'] ?? 0,
         'participants_count': response['participants_count'] ?? 0,
         'comments_count': response['comments_count'] ?? 0,
@@ -907,8 +912,10 @@ class ChallengeService {
     required String subject,
     required String difficulty,
     int? targetScore,
-    dynamic imageFile,
-    bool removeImage = false,
+    List<dynamic>? imageFiles,
+    List<String> existingImageUrls = const [],
+    String? linkUrl,
+    bool removeAllImages = false,
   }) async {
     try {
       final userId = _supabase.auth.currentUser?.id;
@@ -916,10 +923,19 @@ class ChallengeService {
         return {'success': false, 'error': 'User not authenticated'};
       }
 
+      // 🔍 ADD DEBUG HERE
+      print('=== CHALLENGE SERVICE UPDATE DEBUG ===');
+      print('Challenge ID: $challengeId');
+      print('Existing URLs received: $existingImageUrls');
+      print('Existing URLs count: ${existingImageUrls.length}');
+      print('New image files received: $imageFiles');
+      print('New image files count: ${imageFiles?.length ?? 0}');
+      print('Remove all images: $removeAllImages');
+
       // Verify ownership
       final challenge = await _supabase
           .from('challenges')
-          .select('user_id, image_url')
+          .select('user_id, image_urls')
           .eq('id', challengeId)
           .single();
 
@@ -927,45 +943,77 @@ class ChallengeService {
         return {'success': false, 'error': 'Not authorized'};
       }
 
-      String? imageUrl = challenge['image_url'];
+      print('Current DB image_urls: ${challenge['image_urls']}');
 
-      // Handle image removal
-      if (removeImage && imageUrl != null) {
-        try {
-          final filePath = imageUrl.split('/post-images/').last.split('?').first;
-          await _supabase.storage.from('post-images').remove([filePath]);
-          imageUrl = null;
-        } catch (e) {
-          print('Error removing image: $e');
+      // Start with existing images from the UI
+      List<String> finalImageUrls = List<String>.from(existingImageUrls);
+      print('Starting finalImageUrls: $finalImageUrls');
+
+      // Upload new images if provided
+      if (imageFiles != null && imageFiles.isNotEmpty) {
+        print('⬆️ Starting to upload ${imageFiles.length} new images...');
+
+        for (var i = 0; i < imageFiles.length; i++) {
+          var imageFile = imageFiles[i];
+          try {
+            print('Uploading image ${i + 1}/${imageFiles.length}...');
+
+            final fileName = ImagePickerService.getFileName(imageFile, userId);
+            final filePath = 'challenges/$userId/$fileName';
+            final bytes = await ImagePickerService.getImageBytes(imageFile);
+
+            print('File name: $fileName');
+            print('File path: $filePath');
+            print('Bytes length: ${bytes?.length}');
+
+            if (bytes != null) {
+              final Uint8List uint8Bytes = Uint8List.fromList(bytes);
+
+              await _supabase.storage.from('post-images').uploadBinary(
+                filePath,
+                uint8Bytes,
+                fileOptions: const FileOptions(upsert: true),
+              );
+
+              final url = _supabase.storage.from('post-images').getPublicUrl(filePath);
+              finalImageUrls.add(url);
+              print('✅ Image ${i + 1} uploaded: $url');
+            } else {
+              print('❌ Image ${i + 1} has null bytes!');
+            }
+          } catch (e) {
+            print('❌ Error uploading image ${i + 1}: $e');
+          }
         }
+      } else {
+        print('ℹ️ No new images to upload');
       }
 
-      // Upload new image if provided
-      if (imageFile != null) {
-        try {
-          // Delete old image if exists
-          if (imageUrl != null) {
-            final oldPath = imageUrl.split('/post-images/').last.split('?').first;
-            await _supabase.storage.from('post-images').remove([oldPath]);
-          }
+      print('Final image URLs before update: $finalImageUrls');
+      print('Final count: ${finalImageUrls.length}');
 
-          final fileName = ImagePickerService.getFileName(imageFile, userId);
-          final filePath = 'challenges/$userId/$fileName';
-          final bytes = await ImagePickerService.getImageBytes(imageFile);
-
-          if (bytes != null) {
-            final Uint8List uint8Bytes = Uint8List.fromList(bytes);
-            await _supabase.storage.from('post-images').uploadBinary(
-              filePath,
-              uint8Bytes,
-              fileOptions: const FileOptions(upsert: true),
-            );
-            imageUrl = _supabase.storage.from('post-images').getPublicUrl(filePath);
+      // Handle removing all images
+      if (removeAllImages) {
+        print('🗑️ Removing all images...');
+        // Delete old images from storage
+        final oldImageUrls = challenge['image_urls'];
+        if (oldImageUrls != null && oldImageUrls is List) {
+          for (var imageUrl in oldImageUrls) {
+            try {
+              final filePath = imageUrl.toString().split('/post-images/').last.split('?').first;
+              await _supabase.storage.from('post-images').remove([filePath]);
+            } catch (e) {
+              print('Error deleting old image: $e');
+            }
           }
-        } catch (e) {
-          print('Error uploading new image: $e');
         }
+        finalImageUrls = [];
       }
+
+      print('📝 Updating challenge with:');
+      print('  - title: $title');
+      print('  - image_urls: $finalImageUrls');
+      print('  - link_url: $linkUrl');
 
       // Update challenge
       final response = await _supabase.from('challenges').update({
@@ -974,12 +1022,16 @@ class ChallengeService {
         'subject': subject,
         'difficulty': difficulty,
         'target_score': targetScore,
-        'image_url': imageUrl,
+        'image_urls': finalImageUrls.isNotEmpty ? finalImageUrls : null,
+        'link_url': linkUrl,
       }).eq('id', challengeId).select().single();
+
+      print('✅ Update response: $response');
+      print('=====================================');
 
       return {'success': true, 'data': response};
     } catch (e) {
-      print('Error updating challenge: $e');
+      print('❌ Error updating challenge: $e');
       return {'success': false, 'error': e.toString()};
     }
   }

@@ -21,8 +21,9 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _targetScoreController = TextEditingController();
+  final _linkController = TextEditingController(); // NEW
   final _formKey = GlobalKey<FormState>();
-  dynamic _selectedImage; // Can be File or XFile
+  List<dynamic> _selectedImages = []; // Changed to List for multiple images
   bool _isLoading = false;
   final _supabase = Supabase.instance.client;
  // Changed from File? _selectedImage;
@@ -84,10 +85,16 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
     _titleController.dispose();
     _descriptionController.dispose();
     _targetScoreController.dispose();
+    _linkController.dispose(); // NEW
     super.dispose();
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    if (_selectedImages.length >= 5) {
+      _showMessage('You can only add up to 5 images', isError: true);
+      return;
+    }
+
     final pickedImage = await ImagePickerService.pickImage(
       source: source,
       maxWidth: 1920,
@@ -97,7 +104,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
 
     if (pickedImage != null) {
       setState(() {
-        _selectedImage = pickedImage;
+        _selectedImages.add(pickedImage);
       });
     }
   }
@@ -235,7 +242,8 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
         difficulty: _selectedDifficulty,
         durationDays: _selectedDuration,
         targetScore: targetScore,
-        imageFile: _selectedImage,
+        imageFiles: _selectedImages.isNotEmpty ? _selectedImages : null,
+        linkUrl: _linkController.text.trim().isNotEmpty ? _linkController.text.trim() : null,
       );
 
       if (!mounted) return;
@@ -246,8 +254,9 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
         _titleController.clear();
         _descriptionController.clear();
         _targetScoreController.clear();
+        _linkController.clear(); // NEW
         setState(() {
-          _selectedImage = null;
+          _selectedImages.clear(); // Changed
           _selectedExamId = null;
           _selectedSubject = null;
           _subjects.clear();
@@ -332,6 +341,8 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
                     const SizedBox(height: 16),
                     _buildBasicInfo(),
                     const SizedBox(height: 16),
+                    _buildLinkSection(), // NEW
+                    const SizedBox(height: 16),
                     _buildChallengeSettings(),
                     const SizedBox(height: 100), // Add space for button
                   ],
@@ -402,130 +413,257 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
   }
 
   Widget _buildImageSection() {
-    return GestureDetector(
-      onTap: _selectedImage == null ? _showImageSourceSheet : null,
-      child: Container(
-        width: double.infinity,
-        height: _selectedImage != null ? 400 : 200,
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: _selectedImage == null
-            ? Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.add_photo_alternate_outlined,
-              size: 64,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Add Photo (Optional)',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Share your study setup or materials',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade500,
-              ),
-            ),
-          ],
-        )
-            : Stack(
-          fit: StackFit.expand,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: kIsWeb
-                  ? FutureBuilder<List<int>?>(
-                future:
-                ImagePickerService.getImageBytes(_selectedImage),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState ==
-                      ConnectionState.done &&
-                      snapshot.hasData &&
-                      snapshot.data != null) {
-                    return Image.memory(
-                      Uint8List.fromList(snapshot.data!), // ✅ FIX
-                      fit: BoxFit.cover,
-                    );
-                  }
-                  return Container(
-                    color: Colors.grey.shade200,
-                    child: const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  );
-                },
-              )
-                  : Image.file(
-                _selectedImage as File,
-                fit: BoxFit.cover,
-              ),
-            ),
-            Positioned(
-              top: 12,
-              right: 12,
-              child: GestureDetector(
-                onTap: () => setState(() => _selectedImage = null),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 12,
-              right: 12,
-              child: GestureDetector(
-                onTap: _showImageSourceSheet,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.edit,
-                          color: Colors.white, size: 18),
-                      SizedBox(width: 6),
-                      Text(
-                        'Change',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
+    return Column(
+      children: [
+        // Display selected images
+        if (_selectedImages.isNotEmpty)
+          Container(
+            height: 400,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            child: PageView.builder(
+              itemCount: _selectedImages.length,
+              itemBuilder: (context, index) {
+                return Stack(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: kIsWeb
+                            ? FutureBuilder<List<int>?>(
+                          future: ImagePickerService.getImageBytes(_selectedImages[index]),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.done &&
+                                snapshot.hasData &&
+                                snapshot.data != null) {
+                              return Image.memory(
+                                Uint8List.fromList(snapshot.data!),
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                              );
+                            }
+                            return Container(
+                              color: Colors.grey.shade200,
+                              child: const Center(child: CircularProgressIndicator()),
+                            );
+                          },
+                        )
+                            : Image.file(
+                          _selectedImages[index] as File,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    // Remove button
+                    Positioned(
+                      top: 12,
+                      right: 16,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _selectedImages.removeAt(index)),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, color: Colors.white, size: 20),
+                        ),
+                      ),
+                    ),
+                    // Image counter
+                    if (_selectedImages.length > 1)
+                      Positioned(
+                        bottom: 12,
+                        left: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${index + 1}/${_selectedImages.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    // Change button (only on first image)
+                    if (index == 0)
+                      Positioned(
+                        bottom: 12,
+                        right: 16,
+                        child: GestureDetector(
+                          onTap: _showImageSourceSheet,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add_photo_alternate, color: Colors.white, size: 18),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Add More',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+
+        const SizedBox(height: 12),
+
+        // Add images button (when no images)
+        if (_selectedImages.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: GestureDetector(
+              onTap: _showImageSourceSheet,
+              child: Container(
+                width: double.infinity,
+                height: 200,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_photo_alternate_outlined, size: 64, color: Colors.grey.shade400),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Add Photo (Optional)',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Share your study setup or materials (up to 5)',
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+
+        // Add more button (when has images but less than 5)
+        if (_selectedImages.isNotEmpty && _selectedImages.length < 5)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: GestureDetector(
+              onTap: _showImageSourceSheet,
+              child: Container(
+                width: double.infinity,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_photo_alternate, color: Colors.grey.shade600),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Add More Images (${_selectedImages.length}/5)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildLinkSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.link, size: 20, color: Colors.grey.shade600),
+              const SizedBox(width: 8),
+              Text(
+                'Add Link (Optional)',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _linkController,
+            decoration: InputDecoration(
+              hintText: 'https://example.com',
+              hintStyle: TextStyle(color: Colors.grey.shade400),
+              prefixIcon: Icon(Icons.link, color: Colors.grey.shade600),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF8A1FFF), width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            keyboardType: TextInputType.url,
+            validator: (value) {
+              if (value != null && value.trim().isNotEmpty) {
+                final urlPattern = r'^https?://';
+                if (!RegExp(urlPattern).hasMatch(value.trim())) {
+                  return 'Please enter a valid URL starting with http:// or https://';
+                }
+              }
+              return null;
+            },
+          ),
+        ],
       ),
     );
   }

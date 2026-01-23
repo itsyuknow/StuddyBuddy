@@ -22,9 +22,10 @@ class _EditChallengeScreenState extends State<EditChallengeScreen> {
 
   String? _selectedSubject;
   String _selectedDifficulty = 'medium';
-  dynamic _selectedImage;
-  String? _existingImageUrl;
-  bool _removeExistingImage = false;
+  // ✅ NEW - Add these
+  List<dynamic> _selectedImages = []; // For new images
+  List<String> _existingImageUrls = []; // For existing images
+  final _linkController = TextEditingController(); // For link URL
   bool _isSubmitting = false;
 
   List<String> _subjects = [];
@@ -40,7 +41,12 @@ class _EditChallengeScreenState extends State<EditChallengeScreen> {
     _descriptionController.text = widget.challenge['description'] ?? '';
     _selectedSubject = widget.challenge['subject'];
     _selectedDifficulty = widget.challenge['difficulty'] ?? 'medium';
-    _existingImageUrl = widget.challenge['image_url'];
+    _linkController.text = widget.challenge['link_url'] ?? ''; // NEW
+
+    // Load existing images
+    if (widget.challenge['image_urls'] != null && widget.challenge['image_urls'] is List) {
+      _existingImageUrls = List<String>.from(widget.challenge['image_urls']);
+    }
 
     if (widget.challenge['target_score'] != null) {
       _targetScoreController.text = widget.challenge['target_score'].toString();
@@ -72,24 +78,35 @@ class _EditChallengeScreenState extends State<EditChallengeScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _targetScoreController.dispose();
+    _linkController.dispose(); // NEW
     super.dispose();
   }
 
   Future<void> _pickImage() async {
+    if (_selectedImages.length + _existingImageUrls.length >= 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Maximum 5 images allowed')),
+      );
+      return;
+    }
+
     final image = await ImagePickerService.pickImage(source: ImageSource.gallery);
     if (image != null) {
       setState(() {
-        _selectedImage = image;
-        _removeExistingImage = false;
+        _selectedImages.add(image);
       });
     }
   }
 
-  void _removeImage() {
+  void _removeNewImage(int index) {
     setState(() {
-      _selectedImage = null;
-      _removeExistingImage = true;
-      _existingImageUrl = null;
+      _selectedImages.removeAt(index);
+    });
+  }
+
+  void _removeExistingImage(int index) {
+    setState(() {
+      _existingImageUrls.removeAt(index);
     });
   }
 
@@ -123,8 +140,10 @@ class _EditChallengeScreenState extends State<EditChallengeScreen> {
       subject: _selectedSubject!,
       difficulty: _selectedDifficulty,
       targetScore: targetScore,
-      imageFile: _selectedImage,
-      removeImage: _removeExistingImage,
+      imageFiles: _selectedImages.isNotEmpty ? _selectedImages : null,
+      existingImageUrls: _existingImageUrls,
+      linkUrl: _linkController.text.trim().isNotEmpty ? _linkController.text.trim() : null,
+      removeAllImages: _existingImageUrls.isEmpty && _selectedImages.isEmpty,
     );
 
     setState(() => _isSubmitting = false);
@@ -475,11 +494,55 @@ class _EditChallengeScreenState extends State<EditChallengeScreen> {
                 ),
               ),
 
+              const SizedBox(height: 16),
+
+              // Link Section - NEW
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: TextFormField(
+                  controller: _linkController,
+                  decoration: InputDecoration(
+                    labelText: 'Link URL (Optional)',
+                    labelStyle: TextStyle(color: Colors.grey.shade600),
+                    hintText: 'https://example.com',
+                    hintStyle: TextStyle(color: Colors.grey.shade400),
+                    prefixIcon: Icon(Icons.link, color: Colors.grey.shade600),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.all(20),
+                  ),
+                  keyboardType: TextInputType.url,
+                  validator: (value) {
+                    if (value != null && value.trim().isNotEmpty) {
+                      final urlPattern = r'^https?://';
+                      if (!RegExp(urlPattern).hasMatch(value.trim())) {
+                        return 'Please enter a valid URL starting with http:// or https://';
+                      }
+                    }
+                    return null;
+                  },
+                ),
+              ),
+
               const SizedBox(height: 24),
 
-              // Image Section
+              // Images Section
               Text(
-                'Challenge Image',
+                'Images (up to 5)',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -488,135 +551,130 @@ class _EditChallengeScreenState extends State<EditChallengeScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Display existing or new image
-              if (_selectedImage != null || (_existingImageUrl != null && !_removeExistingImage))
-                Container(
+              // Display existing and new images
+              if (_existingImageUrls.isNotEmpty || _selectedImages.isNotEmpty)
+                SizedBox(
                   height: 250,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: _selectedImage != null
-                            ? (_selectedImage is File
-                            ? Image.file(
-                          _selectedImage as File,
-                          width: double.infinity,
-                          height: 250,
-                          fit: BoxFit.cover,
-                        )
-                            : FutureBuilder<Uint8List>(
-                          future: (_selectedImage as XFile).readAsBytes(),
-                          builder: (context, snapshot) {
-                            if (snapshot.hasData) {
-                              return Image.memory(
-                                snapshot.data!,
-                                width: double.infinity,
-                                height: 250,
-                                fit: BoxFit.cover,
-                              );
-                            }
-                            return Container(
-                              width: double.infinity,
-                              height: 250,
-                              color: Colors.grey.shade200,
-                              child: const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                            );
-                          },
-                        ))
-                            : Image.network(
-                          _existingImageUrl!,
-                          width: double.infinity,
-                          height: 250,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            height: 250,
-                            color: Colors.grey.shade200,
-                            child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey.shade400),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 12,
-                        right: 12,
-                        child: Row(
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
-                                    blurRadius: 8,
-                                  ),
-                                ],
-                              ),
-                              child: IconButton(
-                                icon: const Icon(Icons.edit, color: Color(0xFF8A1FFF)),
-                                onPressed: _pickImage,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
-                                    blurRadius: 8,
-                                  ),
-                                ],
-                              ),
-                              child: IconButton(
-                                icon: const Icon(Icons.close, color: Colors.red),
-                                onPressed: _removeImage,
-                              ),
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _existingImageUrls.length + _selectedImages.length,
+                    itemBuilder: (context, index) {
+                      final isExisting = index < _existingImageUrls.length;
+
+                      return Container(
+                        width: 200,
+                        margin: const EdgeInsets.only(right: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                      ),
-                      if (_selectedImage != null)
-                        Positioned(
-                          bottom: 12,
-                          left: 12,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF8A1FFF),
-                              borderRadius: BorderRadius.circular(8),
+                        child: Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: isExisting
+                                  ? Image.network(
+                                _existingImageUrls[index],
+                                width: 200,
+                                height: 250,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  height: 250,
+                                  color: Colors.grey.shade200,
+                                  child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey.shade400),
+                                ),
+                              )
+                                  : (_selectedImages[index - _existingImageUrls.length] is File
+                                  ? Image.file(
+                                _selectedImages[index - _existingImageUrls.length] as File,
+                                width: 200,
+                                height: 250,
+                                fit: BoxFit.cover,
+                              )
+                                  : FutureBuilder<Uint8List>(
+                                future: (_selectedImages[index - _existingImageUrls.length] as XFile).readAsBytes(),
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasData) {
+                                    return Image.memory(
+                                      snapshot.data!,
+                                      width: 200,
+                                      height: 250,
+                                      fit: BoxFit.cover,
+                                    );
+                                  }
+                                  return Container(
+                                    width: 200,
+                                    height: 250,
+                                    color: Colors.grey.shade200,
+                                    child: const Center(child: CircularProgressIndicator()),
+                                  );
+                                },
+                              )),
                             ),
-                            child: const Text(
-                              'New Image',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                            Positioned(
+                              top: 12,
+                              right: 12,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 8,
+                                    ),
+                                  ],
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(Icons.close, color: Colors.red),
+                                  onPressed: () => isExisting
+                                      ? _removeExistingImage(index)
+                                      : _removeNewImage(index - _existingImageUrls.length),
+                                ),
                               ),
                             ),
-                          ),
+                            if (!isExisting)
+                              Positioned(
+                                bottom: 12,
+                                left: 12,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF8A1FFF),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'New',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                    ],
+                      );
+                    },
                   ),
-                )
-              else
+                ),
+
+              const SizedBox(height: 12),
+
+              // Add image button
+              if (_existingImageUrls.length + _selectedImages.length < 5)
                 GestureDetector(
                   onTap: _pickImage,
                   child: Container(
-                    height: 200,
+                    height: 100,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
@@ -625,43 +683,18 @@ class _EditChallengeScreenState extends State<EditChallengeScreen> {
                         width: 2,
                         style: BorderStyle.solid,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
-                            ),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.add_photo_alternate, color: Colors.white, size: 32),
-                        ),
-                        const SizedBox(height: 16),
+                        Icon(Icons.add_photo_alternate, color: Colors.grey.shade600, size: 32),
+                        const SizedBox(height: 8),
                         Text(
-                          'Add Image',
+                          'Add Image (${_existingImageUrls.length + _selectedImages.length}/5)',
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                             color: Colors.grey.shade700,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Tap to select from gallery',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade500,
                           ),
                         ),
                       ],

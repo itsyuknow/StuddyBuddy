@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/challenge_service.dart';
 import '../services/user_session.dart';
 import 'edit_challenge_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ChallengeDetailsScreen extends StatefulWidget {
   final String challengeId;
@@ -208,6 +209,34 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
           _isLoading = false;
           _challenge = null;
         });
+      }
+    }
+  }
+
+  Future<void> _launchUrl(String urlString) async {
+    try {
+      final uri = Uri.parse(urlString);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not open link'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error launching URL: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Invalid link'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -1176,19 +1205,170 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen>
             ),
           ),
           const SizedBox(height: 20),
-          if (_challenge!['image_url'] != null)
-            ClipRRect(
-              child: Image.network(
-                _challenge!['image_url'],
-                width: double.infinity,
-                height: 320,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  height: 320,
-                  color: Colors.grey.shade200,
-                  child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey.shade400),
+
+// 🔗 Link section
+          if (_challenge!['link_url'] != null && (_challenge!['link_url'] as String).isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: GestureDetector(
+                onTap: () => _launchUrl(_challenge!['link_url']),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8A1FFF).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF8A1FFF).withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF8A1FFF), Color(0xFFC43AFF)],
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.link, color: Colors.white, size: 16),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _challenge!['link_url'],
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF8A1FFF),
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.open_in_new,
+                        color: Color(0xFF8A1FFF),
+                        size: 18,
+                      ),
+                    ],
+                  ),
                 ),
               ),
+            ),
+
+          if (_challenge!['link_url'] != null && (_challenge!['link_url'] as String).isNotEmpty)
+            const SizedBox(height: 20),
+
+// 🖼️ Multiple images with PageView
+          if (_challenge!['image_urls'] != null && (_challenge!['image_urls'] as List).isNotEmpty)
+            StatefulBuilder(
+              builder: (context, setStateLocal) {
+                int currentPage = 0;
+                final imageUrls = _challenge!['image_urls'] as List;
+
+                return SizedBox(
+                  height: 320,
+                  child: Stack(
+                    children: [
+                      PageView.builder(
+                        itemCount: imageUrls.length,
+                        onPageChanged: (index) {
+                          setStateLocal(() {
+                            currentPage = index;
+                          });
+                        },
+                        itemBuilder: (context, index) {
+                          return GestureDetector(
+                            onDoubleTap: _toggleLike,
+                            child: Image.network(
+                              imageUrls[index],
+                              width: double.infinity,
+                              height: 320,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Container(
+                                height: 320,
+                                color: Colors.grey.shade200,
+                                child: Icon(
+                                  Icons.image_not_supported,
+                                  size: 48,
+                                  color: Colors.grey.shade400,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+
+                      // Dot indicators at bottom center
+                      if (imageUrls.length > 1)
+                        Positioned(
+                          bottom: 12,
+                          left: 0,
+                          right: 0,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(
+                              imageUrls.length,
+                                  (index) => Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                width: currentPage == index ? 24 : 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: currentPage == index
+                                      ? Colors.white
+                                      : Colors.white.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(4),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.3),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      // Image counter badge at top right
+                      if (imageUrls.length > 1)
+                        Positioned(
+                          top: 12,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.collections,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${currentPage + 1}/${imageUrls.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
             ),
           Padding(
             padding: const EdgeInsets.all(20),

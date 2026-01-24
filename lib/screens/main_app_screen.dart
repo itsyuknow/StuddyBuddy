@@ -7,6 +7,11 @@ import '../tabs/create_post_tab.dart';
 import '../tabs/chat_tab.dart';
 import '../tabs/profile_tab.dart';
 import '../services/chat_service.dart';
+import '../services/deep_link_manager.dart'; // 👈 ADD THIS
+import '../main.dart'; // 👈 ADD THIS (for navigatorKey)
+import 'post_details_screen.dart'; // 👈 ADD THIS
+import 'challenge_details_screen.dart'; // 👈 ADD THIS
+import 'user_profile_screen.dart'; // 👈 ADD THIS
 
 class MainAppScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -19,6 +24,7 @@ class MainAppScreen extends StatefulWidget {
 
 class _MainAppScreenState extends State<MainAppScreen> {
   final _supabase = Supabase.instance.client;
+  final _deepLinkManager = DeepLinkManager(); // 👈 ADD THIS
   late int _selectedIndex;
 
   int _unreadMessagesCount = 0;
@@ -33,6 +39,58 @@ class _MainAppScreenState extends State<MainAppScreen> {
 
     // Refresh counts periodically
     _startPeriodicRefresh();
+
+    // 👇 ADD THIS: Check for pending deep links after screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handlePendingDeepLink();
+    });
+  }
+
+  // 👇 ADD THIS METHOD: Handle pending deep links
+  Future<void> _handlePendingDeepLink() async {
+    // Wait a bit for the screen to fully render
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (!_deepLinkManager.hasPendingNavigation()) {
+      print('📱 No pending deep link');
+      return;
+    }
+
+    final pendingNav = _deepLinkManager.getPendingNavigation();
+
+    if (pendingNav == null) return;
+
+    print('🚀 Executing pending deep link: $pendingNav');
+
+    final contentType = pendingNav['content_type'];
+    final contentId = pendingNav['content_id'];
+
+    // Clear the deep link so it doesn't trigger again
+    _deepLinkManager.clearPendingNavigation();
+
+    // Navigate to the appropriate screen
+    if (contentType == 'post') {
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => PostDetailsScreen(postId: contentId),
+        ),
+      );
+      print('✅ Navigated to post: $contentId');
+    } else if (contentType == 'challenge') {
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => ChallengeDetailsScreen(challengeId: contentId),
+        ),
+      );
+      print('✅ Navigated to challenge: $contentId');
+    } else if (contentType == 'user') {
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => UserProfileScreen(userId: contentId),
+        ),
+      );
+      print('✅ Navigated to user profile: $contentId');
+    }
   }
 
   void _startPeriodicRefresh() {
@@ -56,7 +114,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
       int newPosts = 0;
       if (_selectedIndex != 0) {
         final prefs = await SharedPreferences.getInstance();
-        final lastViewedStr = prefs.getString('last_viewed_home_${currentUserId}');
+        final lastViewedStr = prefs.getString('last_viewed_home_$currentUserId');
 
         if (lastViewedStr != null) {
           final lastViewed = DateTime.parse(lastViewedStr);
@@ -115,7 +173,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-        'last_viewed_home_${currentUserId}',
+        'last_viewed_home_$currentUserId',
         DateTime.now().toIso8601String(),
       );
 

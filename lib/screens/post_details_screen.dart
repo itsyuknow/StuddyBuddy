@@ -5,6 +5,7 @@ import '../services/post_service.dart';
 import '../services/user_session.dart';
 import 'edit_post_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/share_service.dart';
 
 class PostDetailsScreen extends StatefulWidget {
   final String postId;
@@ -329,6 +330,40 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
       _showMessage('Challenge accepted! Good luck! 🎯', isError: false);
     } else {
       _showMessage('Failed to accept challenge', isError: true);
+    }
+  }
+  Future<void> _sharePost(String postId, String title) async {
+    try {
+      final link = await ShareService.generatePostLink(postId);
+      final copied = await ShareService.copyLinkToClipboard(link);
+
+      if (copied && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: const [
+                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                SizedBox(width: 12),
+                Text('Link copied to clipboard!'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error sharing post: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to copy link'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -1214,6 +1249,14 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> with SingleTicker
                       icon: Icons.chat_bubble_outline,
                       label: '${_post!['comments_count']}',
                       color: Colors.grey.shade700,
+                    ),
+                    const SizedBox(width: 20),
+                    // 👇 ADD SHARE BUTTON
+                    _buildActionButton(
+                      icon: Icons.share_outlined,
+                      label: 'Share',
+                      color: Colors.grey.shade700,
+                      onTap: () => _sharePost(widget.postId, _post!['title']),
                     ),
                     if (isChallenge) ...[
                       const Spacer(),

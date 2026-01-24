@@ -8,6 +8,7 @@ import '../services/user_session.dart';
 import '../screens/post_details_screen.dart';
 import '../screens/challenge_details_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/share_service.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -331,6 +332,76 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
 
   }
   }
+  }
+
+  Future<void> _sharePost(String postId, String title) async {
+    try {
+      final link = await ShareService.generatePostLink(postId);
+      final copied = await ShareService.copyLinkToClipboard(link);
+
+      if (copied && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: const [
+                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                SizedBox(width: 12),
+                Text('Link copied to clipboard!'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error sharing post: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to copy link'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _shareChallenge(String challengeId, String title) async {
+    try {
+      final link = await ShareService.generateChallengeLink(challengeId);
+      final copied = await ShareService.copyLinkToClipboard(link);
+
+      if (copied && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: const [
+                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                SizedBox(width: 12),
+                Text('Link copied to clipboard!'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error sharing challenge: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to copy link'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _toggleChallengeLike(String challengeId) async {
@@ -908,6 +979,16 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
                     label: '${post['comments_count']}',
                   ),
                   const Spacer(),
+// 👇 ADD SHARE BUTTON
+                  IconButton(
+                    onPressed: () => _sharePost(postId, post['title']),
+                    icon: const Icon(Icons.share_outlined, size: 20),
+                    color: Colors.grey.shade700,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Share',
+                  ),
+                  const SizedBox(width: 8),
                   Icon(
                     Icons.arrow_forward_ios_rounded,
                     size: 16,
@@ -1270,6 +1351,16 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin, 
                     label: '${challenge['comments_count']}',
                   ),
                   const Spacer(),
+// 👇 ADD SHARE BUTTON
+                  IconButton(
+                    onPressed: () => _shareChallenge(challengeId, challenge['title']),
+                    icon: const Icon(Icons.share_outlined, size: 20),
+                    color: Colors.grey.shade700,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Share',
+                  ),
+                  const SizedBox(width: 8),
                   if (isJoined)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

@@ -866,16 +866,17 @@ class ChallengeService {
     }
   }
 
+
   // Delete challenge
   static Future<bool> deleteChallenge(String challengeId) async {
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return false;
 
-      // Verify ownership
+      // Verify ownership - ✅ FIXED: Changed to image_urls (plural)
       final challenge = await _supabase
           .from('challenges')
-          .select('user_id, image_url')
+          .select('user_id, image_urls')  // ✅ Changed from image_url to image_urls
           .eq('id', challengeId)
           .single();
 
@@ -883,14 +884,23 @@ class ChallengeService {
         return false; // Not the owner
       }
 
-      // Delete image from storage if exists
-      if (challenge['image_url'] != null) {
+      // Delete images from storage if they exist
+      if (challenge['image_urls'] != null) {  // ✅ Changed to plural
         try {
-          final imageUrl = challenge['image_url'] as String;
-          final filePath = imageUrl.split('/post-images/').last.split('?').first;
-          await _supabase.storage.from('post-images').remove([filePath]);
+          final imageUrls = challenge['image_urls'] as List;  // ✅ It's an array
+
+          // Loop through all images and delete them
+          for (var imageUrl in imageUrls) {
+            try {
+              final filePath = imageUrl.toString().split('/post-images/').last.split('?').first;
+              await _supabase.storage.from('post-images').remove([filePath]);
+              print('Deleted image: $filePath');
+            } catch (e) {
+              print('Error deleting individual image: $e');
+            }
+          }
         } catch (e) {
-          print('Error deleting image: $e');
+          print('Error deleting images: $e');
         }
       }
 

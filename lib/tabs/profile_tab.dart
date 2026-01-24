@@ -13,6 +13,7 @@ import '../screens/edit_profile_screen.dart';
 import '../screens/post_details_screen.dart';
 import '../screens/followers_list_screen.dart';
 import 'package:shimmer/shimmer.dart';
+import '../services/share_service.dart';
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
@@ -243,42 +244,39 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
   Future<void> _shareProfile() async {
     try {
       final userId = _supabase.auth.currentUser?.id;
-      final username = _userData?['username'] ?? _userData?['full_name'];
+      final userName = _userData?['full_name'] ?? 'User Profile';
 
       if (userId == null) return;
 
-      final message = '👋 Check out my Edormy profile!\n\n'
-          '📱 Username: $username\n'
-          '🆔 User ID: $userId\n\n'
-          'Copy the User ID and search for me in the app!';
-
-      await Clipboard.setData(ClipboardData(text: message));
+      final link = await ShareService.generateUserProfileLink(userId);
+      final copied = await ShareService.copyLinkToClipboard(link);
 
       if (!mounted) return;
-      Navigator.pop(context); // Close the menu first
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 12),
-              Text('Profile info copied to clipboard!'),
-            ],
+      if (copied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Profile link copied to clipboard!'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 2),
           ),
-          backgroundColor: const Color(0xFF8A1FFF),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          margin: const EdgeInsets.all(16),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+        );
+      }
     } catch (e) {
       print('Error sharing profile: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: ${e.toString()}'),
+          content: Text('Failed to copy link: ${e.toString()}'),
           backgroundColor: Colors.red.shade400,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -287,6 +285,7 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
       );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

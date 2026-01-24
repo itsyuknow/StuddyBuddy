@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../services/user_session.dart';
+import '../services/deep_link_manager.dart'; // 👈 ADD THIS
 import 'exam_selection_screen.dart';
 import 'main_app_screen.dart';
 
@@ -20,6 +21,8 @@ class _SplashScreenState extends State<SplashScreen>
 
   late Animation<double> _logoFade;
   late Animation<double> _logoScale;
+
+  final _deepLinkManager = DeepLinkManager(); // 👈 USE SINGLETON
 
   @override
   void initState() {
@@ -55,9 +58,12 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _checkLoginAndNavigate() async {
     await Future.delayed(const Duration(milliseconds: 3500));
-    bool isLoggedIn = await UserSession.checkLogin();
+
     if (!mounted) return;
 
+    bool isLoggedIn = await UserSession.checkLogin();
+
+    // Navigate to appropriate screen
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
@@ -71,6 +77,9 @@ class _SplashScreenState extends State<SplashScreen>
         transitionDuration: const Duration(milliseconds: 400),
       ),
     );
+
+    // 👇 NOTE: Deep link navigation will be handled by MainAppScreen
+    // when user completes onboarding or if already logged in
   }
 
   @override
@@ -84,19 +93,54 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
-        child: FadeTransition(
-          opacity: _logoFade,
-          child: ScaleTransition(
-            scale: _logoScale,
-            child: Image.asset(
-              'assets/edormy_logo.png',
-              width: 320,
-              height: 320,
-              fit: BoxFit.contain,
+      body: Stack(
+        children: [
+          // Main logo animation
+          Center(
+            child: FadeTransition(
+              opacity: _logoFade,
+              child: ScaleTransition(
+                scale: _logoScale,
+                child: Image.asset(
+                  'assets/edormy_logo.png',
+                  width: 320,
+                  height: 320,
+                  fit: BoxFit.contain,
+                ),
+              ),
             ),
           ),
-        ),
+
+          // 👇 Show indicator if deep link detected
+          if (_deepLinkManager.hasPendingNavigation())
+            Positioned(
+              bottom: 60,
+              left: 0,
+              right: 0,
+              child: FadeTransition(
+                opacity: _logoFade,
+                child: Center(
+                  child: Column(
+                    children: [
+                      const CircularProgressIndicator(
+                        color: Color(0xFF8A1FFF),
+                        strokeWidth: 2.5,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Opening shared content...',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

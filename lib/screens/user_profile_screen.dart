@@ -7,6 +7,7 @@ import '../screens/post_details_screen.dart';
 import '../screens/chat_screen.dart';
 import '../screens/followers_list_screen.dart';
 import 'challenge_details_screen.dart';
+import '../services/share_service.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
@@ -101,6 +102,41 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     } catch (e) {
       print('Error loading user posts and challenges: $e');
       setState(() => _isLoadingPosts = false);
+    }
+  }
+
+  Future<void> _shareProfile(String userId, String userName) async {
+    try {
+      final link = await ShareService.generateUserProfileLink(userId);
+      final copied = await ShareService.copyLinkToClipboard(link);
+
+      if (copied && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: const [
+                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                SizedBox(width: 12),
+                Text('Profile link copied to clipboard!'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error sharing profile: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to copy link'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -289,6 +325,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
         ],
       ),
+      // 👇 ADD THIS
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.share_outlined, color: Colors.white),
+          onPressed: () => _shareProfile(widget.userId, _userData?['full_name'] ?? 'User Profile'),
+          tooltip: 'Share Profile',
+        ),
+      ],
     );
   }
 

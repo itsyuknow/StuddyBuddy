@@ -657,15 +657,16 @@ class PostService {
   }
 
   // Delete post
+  // Delete post
   static Future<bool> deletePost(String postId) async {
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return false;
 
-      // Verify ownership
+      // Verify ownership - ✅ FIXED: Changed to image_urls (plural)
       final post = await _supabase
           .from('posts')
-          .select('user_id, image_url')
+          .select('user_id, image_urls')  // ✅ Changed from image_url to image_urls
           .eq('id', postId)
           .single();
 
@@ -673,14 +674,22 @@ class PostService {
         return false; // Not the owner
       }
 
-      // Delete image from storage if exists
-      if (post['image_url'] != null) {
+      // Delete images from storage if they exist
+      if (post['image_urls'] != null) {  // ✅ Changed to plural
         try {
-          final imageUrl = post['image_url'] as String;
-          final filePath = imageUrl.split('/post-images/').last.split('?').first;
-          await _supabase.storage.from('post-images').remove([filePath]);
+          final imageUrls = post['image_urls'] as List;  // ✅ It's now an array
+
+          // Loop through all images and delete them
+          for (var imageUrl in imageUrls) {
+            try {
+              final filePath = imageUrl.toString().split('/post-images/').last.split('?').first;
+              await _supabase.storage.from('post-images').remove([filePath]);
+            } catch (e) {
+              print('Error deleting individual image: $e');
+            }
+          }
         } catch (e) {
-          print('Error deleting image: $e');
+          print('Error deleting images: $e');
         }
       }
 

@@ -2,9 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:universal_html/html.dart' as html;
 import 'widgets/mobile_wrapper.dart';
 import 'screens/splash_screen.dart';
 import 'screens/reset_password_screen.dart';
+import 'services/share_service.dart';
+import 'services/deep_link_manager.dart'; // 👈 ADD THIS
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +47,7 @@ class StuddyBudyyApp extends StatefulWidget {
 class _StuddyBudyyAppState extends State<StuddyBudyyApp> with WidgetsBindingObserver {
   final supabase = Supabase.instance.client;
   late final StreamSubscription<AuthState> _authSubscription;
+  final _deepLinkManager = DeepLinkManager(); // 👈 USE SINGLETON
 
   @override
   void initState() {
@@ -60,6 +64,11 @@ class _StuddyBudyyAppState extends State<StuddyBudyyApp> with WidgetsBindingObse
         );
       }
     });
+
+    // 👇 CHECK FOR DEEP LINKS IMMEDIATELY
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkDeepLink();
+    });
   }
 
   @override
@@ -72,13 +81,11 @@ class _StuddyBudyyAppState extends State<StuddyBudyyApp> with WidgetsBindingObse
   @override
   void didChangeMetrics() {
     super.didChangeMetrics();
-    // Unfocus any text field when keyboard closes
     final currentFocus = FocusManager.instance.primaryFocus;
     if (currentFocus != null && !currentFocus.hasFocus) {
       currentFocus.unfocus();
     }
 
-    // Force rebuild when keyboard opens/closes
     if (mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -92,10 +99,59 @@ class _StuddyBudyyAppState extends State<StuddyBudyyApp> with WidgetsBindingObse
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // Unfocus when app goes to background
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       FocusManager.instance.primaryFocus?.unfocus();
+    }
+  }
+
+  // 👇 CHECK FOR DEEP LINKS AND STORE GLOBALLY
+  Future<void> _checkDeepLink() async {
+    try {
+      final uri = Uri.parse(html.window.location.href);
+      final pathSegments = uri.pathSegments;
+
+      print('📱 Checking deep link: ${uri.path}');
+      print('📱 Path segments: $pathSegments');
+
+      if (pathSegments.isEmpty || pathSegments.length < 2) {
+        print('📱 No deep link detected');
+        return;
+      }
+
+      final type = pathSegments[0];
+      final identifier = pathSegments[1];
+
+      Map<String, dynamic>? navigationData;
+
+      // Handle short links: /p/abc123, /c/xyz789, /u/def456
+      if (type == 'p' || type == 'c' || type == 'u') {
+        print('🔗 Short link detected: /$type/$identifier');
+
+        final resolved = await ShareService.resolveLink(identifier);
+
+        if (resolved != null) {
+          navigationData = resolved;
+          print('✅ Resolved to: ${resolved['content_type']} - ${resolved['content_id']}');
+        } else {
+          print('❌ Failed to resolve short link');
+        }
+      }
+      // Handle direct links: /post/id, /challenge/id, /user/id
+      else if (type == 'post' || type == 'challenge' || type == 'user') {
+        navigationData = {
+          'content_type': type,
+          'content_id': identifier,
+        };
+        print('🔗 Direct link detected: /$type/$identifier');
+      }
+
+      // 👇 STORE IN GLOBAL MANAGER (survives across screens)
+      if (navigationData != null) {
+        _deepLinkManager.setPendingNavigation(navigationData);
+      }
+    } catch (e) {
+      print('❌ Error checking deep link: $e');
     }
   }
 
@@ -109,10 +165,8 @@ class _StuddyBudyyAppState extends State<StuddyBudyyApp> with WidgetsBindingObse
         builder: (context, child) {
           if (child == null) return const SizedBox.shrink();
 
-          // Get media query data
           final mediaQuery = MediaQuery.of(context);
 
-          // Adjust text scale factor like Dobify does
           final adjustedChild = MediaQuery(
             data: mediaQuery.copyWith(
               textScaleFactor: mediaQuery.textScaleFactor.clamp(0.8, 1.3),
@@ -120,7 +174,6 @@ class _StuddyBudyyAppState extends State<StuddyBudyyApp> with WidgetsBindingObse
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {
-                // Dismiss keyboard when tapping outside
                 FocusManager.instance.primaryFocus?.unfocus();
               },
               child: child,
@@ -179,7 +232,7 @@ class _StuddyBudyyAppState extends State<StuddyBudyyApp> with WidgetsBindingObse
             ),
           ),
         ),
-        home: const SplashScreen(),
+        home: const SplashScreen(), // 👈 No need to pass data anymore
       ),
     );
   }
